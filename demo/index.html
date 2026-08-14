@@ -1,412 +1,615 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="dark" lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Voice-Enabled Indic RAG</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Aether RAG — Mission Control</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-bg": "#090d16",
+            "surface-card": "#111827",
+            "surface-card-hover": "#172033",
+            "surface-border": "#1e293b",
+            "surface-input": "#0b0f19",
+            "primary-emerald": "#10b981",
+            "primary-emerald-glow": "rgba(16, 185, 129, 0.35)",
+            "secondary-amber": "#f59e0b",
+            "accent-cyan": "#06b6d4",
+            "danger-red": "#ef4444",
+            "text-main": "#f3f4f6",
+            "text-muted": "#94a3b8",
+          },
+          fontFamily: {
+            display: ["Plus Jakarta Sans", "sans-serif"],
+            body: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
   <style>
-    :root {
-      --bg-color: #0b0f19;
-      --card-bg: #111827;
-      --card-border: #1f2937;
-      --text-main: #f9fafb;
-      --text-muted: #9ca3af;
-      --accent: #2563eb;
-      --accent-hover: #1d4ed8;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --code-bg: #030712;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      background-color: var(--bg-color);
-      color: var(--text-main);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem 1rem;
+      background-color: #090d16;
+      color: #f3f4f6;
+      font-family: 'Inter', sans-serif;
     }
-    .container {
-      width: 100%;
-      max-width: 900px;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
+    .card-glass {
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
     }
-    header {
-      text-align: center;
-      margin-bottom: 0.5rem;
+    .card-glass:hover {
+      border-color: rgba(16, 185, 129, 0.25);
     }
-    header h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: -0.025em;
-      margin-bottom: 0.5rem;
+    .glow-emerald {
+      box-shadow: 0 0 20px 0 rgba(16, 185, 129, 0.4);
     }
-    header p {
-      color: var(--text-muted);
-      font-size: 0.95rem;
+    .pulse-ring {
+      animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 1.5rem;
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 16px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
     }
-    .form-row {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 1rem;
-      flex-wrap: wrap;
+    .waterfall-bar {
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .input-group {
-      flex: 1;
-      min-width: 200px;
-    }
-    label {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: var(--text-muted);
-      margin-bottom: 0.35rem;
-    }
-    input[type="text"], select {
-      width: 100%;
-      background: var(--code-bg);
-      border: 1px solid var(--card-border);
-      color: var(--text-main);
-      padding: 0.75rem 1rem;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    input[type="text"]:focus, select:focus {
-      border-color: var(--accent);
-    }
-    .button-group {
-      display: flex;
-      gap: 0.75rem;
-    }
-    button {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 0.75rem 1.25rem;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      transition: background-color 0.2s, transform 0.1s;
-    }
-    button:hover { background: var(--accent-hover); }
-    button:active { transform: scale(0.98); }
-    button.record-btn { background: #dc2626; }
-    button.record-btn.recording { background: #991b1b; animation: pulse 1.5s infinite; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-    .badge {
-      display: inline-block;
-      padding: 0.25rem 0.6rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-    .badge-extractive { background: rgba(16, 185, 129, 0.2); color: #34d399; }
-    .badge-declined { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-    .badge-generated { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-    .metric-box {
-      background: var(--code-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
-      padding: 1rem;
-      text-align: center;
-    }
-    .metric-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #60a5fa;
-      font-family: 'JetBrains Mono', monospace;
-    }
-    .metric-label {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-top: 0.25rem;
-    }
-    .timings-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-      font-size: 0.85rem;
-      font-family: 'JetBrains Mono', monospace;
-    }
-    .timings-table th, .timings-table td {
-      padding: 0.6rem 0.8rem;
-      text-align: left;
-      border-bottom: 1px solid var(--card-border);
-    }
-    .timings-table th { color: var(--text-muted); font-weight: 600; }
-    .passages-container {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      margin-top: 1rem;
-    }
-    .passage-item {
-      background: var(--code-bg);
-      border-left: 3px solid var(--accent);
-      border-radius: 4px;
-      padding: 0.75rem 1rem;
-      font-size: 0.9rem;
-      line-height: 1.5;
-    }
-    .hidden { display: none; }
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #090d16; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
   </style>
 </head>
-<body>
-  <div class="container">
-    <header>
-      <h1>Voice-Enabled Indic RAG</h1>
-      <p>Low-latency retrieval-augmented generation for Hindi, Tamil, and English</p>
-    </header>
+<body class="antialiased min-h-screen flex flex-col selection:bg-primary-emerald selection:text-black">
 
-    <div class="card">
-      <div class="form-row">
-        <div class="input-group" style="flex: 0 0 160px;">
-          <label for="languageSelect">Language</label>
-          <select id="languageSelect">
-            <option value="hi">Hindi (hi)</option>
-            <option value="ta">Tamil (ta)</option>
-            <option value="en">English (en)</option>
-          </select>
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-50 w-full bg-surface-bg/80 backdrop-blur-xl border-b border-surface-border h-16 flex items-center justify-between px-6 lg:px-10">
+    <div class="flex items-center gap-6">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-primary-emerald">
+          <span class="material-symbols-outlined text-xl">graphic_eq</span>
         </div>
-        <div class="input-group">
-          <label for="queryInput">Question / Prompt (Text or Spoken)</label>
-          <input type="text" id="queryInput" placeholder="Enter question or click Speak...">
+        <div>
+          <span class="font-display font-bold text-lg tracking-tight text-white">Aether<span class="text-primary-emerald font-mono">.rag</span></span>
+          <span class="hidden sm:inline-block ml-2 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-950 text-emerald-400 border border-emerald-800">MISSION CONTROL</span>
         </div>
       </div>
 
-      <div class="button-group">
-        <button id="submitBtn">Search & Ground</button>
-        <button id="recordBtn" class="record-btn">🎤 Speak (Record)</button>
-      </div>
-      <div id="recordingStatus" style="font-size: 0.85rem; color: #ef4444; margin-top: 0.5rem; display: none;">
-        ● Recording audio... Click Speak again to send.
+      <div class="hidden md:flex items-center gap-4 pl-6 border-l border-surface-border">
+        <div class="flex items-center gap-2">
+          <span id="healthDot" class="w-2 h-2 rounded-full bg-primary-emerald glow-emerald animate-pulse"></span>
+          <span class="font-mono text-xs text-text-muted">FAISS HNSW 384-d</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-accent-cyan"></span>
+          <span class="font-mono text-xs text-text-muted">Sarvam Saaras v3</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-secondary-amber"></span>
+          <span class="font-mono text-xs text-text-muted">BM25-Hybrid Fusion</span>
+        </div>
       </div>
     </div>
 
-    <div id="resultCard" class="card hidden">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h2 style="font-size: 1.25rem;">Answer</h2>
-        <span id="answerBadge" class="badge">EXTRACTIVE</span>
+    <div class="flex items-center gap-3">
+      <div id="statusBadge" class="px-2.5 py-1 rounded-md text-xs font-mono bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> ENGINE READY
       </div>
-      <p id="answerText" style="font-size: 1.05rem; line-height: 1.6; margin-bottom: 1rem;"></p>
-
-      <div class="metrics-grid">
-        <div class="metric-box">
-          <div id="retrievalTime" class="metric-value">-- ms</div>
-          <div class="metric-label">Retrieval Latency (Target: ~200ms)</div>
-        </div>
-        <div class="metric-box">
-          <div id="totalTime" class="metric-value">-- ms</div>
-          <div class="metric-label">End-to-End Latency</div>
-        </div>
-        <div class="metric-box">
-          <div id="groundingScore" class="metric-value">--</div>
-          <div class="metric-label">Grounding Score</div>
-        </div>
-      </div>
-
-      <h3 style="font-size: 1rem; margin-top: 1.5rem; color: var(--text-muted);">Stage Latency Breakdown</h3>
-      <table class="timings-table">
-        <thead>
-          <tr>
-            <th>Stage</th>
-            <th>Duration</th>
-            <th>Status</th>
-            <th>Details</th>
-          </tr>
-        </thead>
-        <tbody id="timingsBody"></tbody>
-      </table>
-
-      <h3 style="font-size: 1rem; margin-top: 1.5rem; color: var(--text-muted);">Retrieved Grounding Passages</h3>
-      <div id="passagesList" class="passages-container"></div>
+      <a href="/docs" target="_blank" class="px-3 py-1.5 rounded-lg border border-surface-border text-xs font-mono text-text-muted hover:text-white hover:bg-surface-card transition">
+        API SPECS
+      </a>
     </div>
-  </div>
+  </header>
 
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+
+    <!-- Hero Cockpit: Voice & Query Control -->
+    <div class="card-glass rounded-2xl p-6 relative overflow-hidden flex flex-col gap-6">
+      
+      <!-- Shader/Waveform Canvas Background -->
+      <div class="absolute inset-0 opacity-30 pointer-events-none">
+        <canvas id="waveformCanvas" class="w-full h-full block"></canvas>
+      </div>
+
+      <!-- Controls Top Row -->
+      <div class="relative z-10 flex flex-wrap items-center justify-between gap-4">
+        
+        <!-- Language Selector Buttons -->
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-mono uppercase text-text-muted flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">translate</span> Language:
+          </span>
+          <div id="languageButtons" class="flex gap-1.5 bg-surface-input p-1 rounded-xl border border-surface-border">
+            <button data-lang="hi" class="lang-btn px-3 py-1 text-xs font-mono font-medium rounded-lg bg-primary-emerald text-black shadow transition">Hindi (hi)</button>
+            <button data-lang="ta" class="lang-btn px-3 py-1 text-xs font-mono font-medium rounded-lg text-text-muted hover:text-white transition">Tamil (ta)</button>
+            <button data-lang="en" class="lang-btn px-3 py-1 text-xs font-mono font-medium rounded-lg text-text-muted hover:text-white transition">English (en)</button>
+          </div>
+        </div>
+
+        <!-- Latency Target SLA Pill -->
+        <div class="hidden sm:flex items-center gap-2 bg-surface-input/80 px-3 py-1.5 rounded-lg border border-surface-border text-xs font-mono">
+          <span class="text-text-muted">Target SLA:</span>
+          <span class="text-emerald-400 font-bold">&lt; 200 ms</span>
+          <span class="text-text-muted">| In-Memory HNSW</span>
+        </div>
+      </div>
+
+      <!-- Center Voice & Input Interaction Area -->
+      <div class="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+        
+        <!-- Mic Record Button -->
+        <div class="md:col-span-3 flex flex-col items-center justify-center gap-2">
+          <button id="recordBtn" class="w-20 h-20 rounded-full bg-emerald-500 text-black flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 cursor-pointer relative group">
+            <span id="micIcon" class="material-symbols-outlined text-3xl font-bold">mic</span>
+            <div id="recordRing" class="absolute inset-0 rounded-full border-2 border-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          </button>
+          <span id="micStatusLabel" class="text-xs font-mono text-text-muted">Click to Speak</span>
+        </div>
+
+        <!-- Query Input Bar -->
+        <div class="md:col-span-9 flex flex-col gap-2">
+          <label class="text-xs font-mono text-text-muted flex items-center justify-between">
+            <span>QUERY PROMPT (TEXT OR VOICE TRANSCRIPT)</span>
+            <span class="text-[11px] text-slate-500 font-mono">Press Enter ↵</span>
+          </label>
+          <div class="flex gap-2">
+            <div class="relative flex-1">
+              <input type="text" id="queryInput" placeholder="Ask in Hindi, Tamil, or English (e.g. हृदय के चार कक्ष कौन से हैं?)" 
+                class="w-full bg-surface-input border border-surface-border text-white text-sm rounded-xl px-4 py-3.5 pl-10 focus:outline-none focus:border-primary-emerald transition"/>
+              <span class="material-symbols-outlined absolute left-3 top-3.5 text-text-muted text-lg">search</span>
+            </div>
+            <button id="searchBtn" class="px-6 py-3.5 bg-primary-emerald hover:bg-emerald-400 text-black font-display font-bold text-sm rounded-xl shadow-lg flex items-center gap-2 transition active:scale-95">
+              <span>Execute</span>
+              <span class="material-symbols-outlined text-sm font-bold">arrow_forward</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Telemetry & Response Dashboard Bento Grid -->
+    <div id="dashboardSection" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      <!-- Left Column: Latency Waterfall & Guardrail Audit (5 cols) -->
+      <div class="lg:col-span-5 flex flex-col gap-6">
+        
+        <!-- Stage Latency Waterfall Card -->
+        <div class="card-glass rounded-2xl p-5 flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-surface-border pb-3">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary-emerald text-lg">waterfall_chart</span>
+              <h3 class="font-display font-bold text-sm text-white uppercase tracking-wider">Latency Waterfall</h3>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-mono text-text-muted">Total:</span>
+              <span id="totalLatencyTag" class="text-xs font-mono font-bold text-emerald-400">0.00 ms</span>
+            </div>
+          </div>
+
+          <!-- Waterfall List -->
+          <div id="waterfallContainer" class="flex flex-col gap-2.5">
+            <div class="text-xs text-text-muted font-mono py-8 text-center">Execute a query to inspect live stage timings</div>
+          </div>
+
+          <!-- Retrieval Stage Target Comparison Bar -->
+          <div class="bg-surface-input p-3 rounded-xl border border-surface-border flex items-center justify-between text-xs font-mono mt-1">
+            <span class="text-text-muted">Retrieval Stage SLA:</span>
+            <div class="flex items-center gap-2">
+              <span id="retrievalLatencyPill" class="text-primary-emerald font-bold">-- ms</span>
+              <span id="retrievalStatusBadge" class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800">PASS</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Guardrail Audit Card -->
+        <div class="card-glass rounded-2xl p-5 flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-surface-border pb-3">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-accent-cyan text-lg">verified_user</span>
+              <h3 class="font-display font-bold text-sm text-white uppercase tracking-wider">Guardrail Audit</h3>
+            </div>
+            <span class="text-[10px] font-mono bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 rounded">MULTI-TIER</span>
+          </div>
+
+          <div class="flex flex-col gap-3">
+            <!-- Safety Check -->
+            <div class="flex items-center justify-between p-3 rounded-xl bg-surface-input border border-surface-border">
+              <div class="flex items-center gap-2.5">
+                <span class="material-symbols-outlined text-primary-emerald text-base">shield</span>
+                <span class="text-xs font-body text-text-main">Pre-Retrieval Safety</span>
+              </div>
+              <span id="safetyAuditBadge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">PASS</span>
+            </div>
+
+            <!-- Centroid Topic Check -->
+            <div class="flex items-center justify-between p-3 rounded-xl bg-surface-input border border-surface-border">
+              <div class="flex items-center gap-2.5">
+                <span class="material-symbols-outlined text-primary-emerald text-base">radar</span>
+                <span class="text-xs font-body text-text-main">Centroid Distance</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="centroidDistText" class="text-xs font-mono text-text-muted">--</span>
+                <span id="topicAuditBadge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">ON-TOPIC</span>
+              </div>
+            </div>
+
+            <!-- Grounding Verification -->
+            <div class="flex items-center justify-between p-3 rounded-xl bg-surface-input border border-surface-border">
+              <div class="flex items-center gap-2.5">
+                <span class="material-symbols-outlined text-primary-emerald text-base">fact_check</span>
+                <span class="text-xs font-body text-text-main">Post-Gen Grounding</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="groundingScoreText" class="text-xs font-mono text-text-muted">--</span>
+                <span id="groundingAuditBadge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">GROUNDED</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Grounded Answer & Retrieved Passages (7 cols) -->
+      <div class="lg:col-span-7 flex flex-col gap-6">
+        
+        <!-- Grounded Output Card -->
+        <div class="card-glass rounded-2xl p-6 flex flex-col gap-4 relative overflow-hidden">
+          <div class="flex items-center justify-between border-b border-surface-border pb-3">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary-emerald text-lg">psychology</span>
+              <h3 class="font-display font-bold text-sm text-white uppercase tracking-wider">Grounded Output</h3>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="answerSourceBadge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">EXTRACTIVE</span>
+            </div>
+          </div>
+
+          <!-- Answer Body -->
+          <div id="answerContent" class="text-sm md:text-base text-text-main leading-relaxed min-h-[80px]">
+            Ready for input. Enter a question above or click the emerald microphone to ask via voice in Hindi, Tamil, or English.
+          </div>
+
+          <!-- Audio Waveform / Transcript Sub-Bar -->
+          <div id="transcriptBar" class="hidden p-3 rounded-xl bg-surface-input border border-surface-border flex items-center justify-between text-xs font-mono">
+            <span class="text-text-muted">Transcribed:</span>
+            <span id="transcriptText" class="text-white italic">--</span>
+          </div>
+        </div>
+
+        <!-- Retrieved Context Passages Card -->
+        <div class="card-glass rounded-2xl p-6 flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-surface-border pb-3">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary-amber text-lg">library_books</span>
+              <h3 class="font-display font-bold text-sm text-white uppercase tracking-wider">Retrieved Context Sources</h3>
+            </div>
+            <span id="topKBadge" class="text-[11px] font-mono text-text-muted">Top-K: 0</span>
+          </div>
+
+          <!-- Passages List -->
+          <div id="passagesList" class="flex flex-col gap-3 max-h-[380px] overflow-y-auto pr-1">
+            <div class="text-xs text-text-muted font-mono py-8 text-center">Retrieved passages from MS MARCO & Long-Doc corpus will appear here</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Audio Waveform Visualizer & Script Controller -->
   <script>
+    // System State
+    let currentLanguage = "hi";
+    let isRecording = false;
     let mediaRecorder = null;
     let audioChunks = [];
-    let isRecording = false;
+    let audioContext = null;
+    let analyser = null;
+    let dataArray = null;
 
-    const recordBtn = document.getElementById('recordBtn');
-    const submitBtn = document.getElementById('submitBtn');
-    const queryInput = document.getElementById('queryInput');
-    const languageSelect = document.getElementById('languageSelect');
-    const resultCard = document.getElementById('resultCard');
-    const recordingStatus = document.getElementById('recordingStatus');
+    // DOM Elements
+    const recordBtn = document.getElementById("recordBtn");
+    const recordRing = document.getElementById("recordRing");
+    const micStatusLabel = document.getElementById("micStatusLabel");
+    const micIcon = document.getElementById("micIcon");
+    const searchBtn = document.getElementById("searchBtn");
+    const queryInput = document.getElementById("queryInput");
+    const languageButtons = document.querySelectorAll(".lang-btn");
+    const answerContent = document.getElementById("answerContent");
+    const answerSourceBadge = document.getElementById("answerSourceBadge");
+    const totalLatencyTag = document.getElementById("totalLatencyTag");
+    const retrievalLatencyPill = document.getElementById("retrievalLatencyPill");
+    const retrievalStatusBadge = document.getElementById("retrievalStatusBadge");
+    const waterfallContainer = document.getElementById("waterfallContainer");
+    const passagesList = document.getElementById("passagesList");
+    const topKBadge = document.getElementById("topKBadge");
+    const safetyAuditBadge = document.getElementById("safetyAuditBadge");
+    const topicAuditBadge = document.getElementById("topicAuditBadge");
+    const groundingAuditBadge = document.getElementById("groundingAuditBadge");
+    const centroidDistText = document.getElementById("centroidDistText");
+    const groundingScoreText = document.getElementById("groundingScoreText");
+    const transcriptBar = document.getElementById("transcriptBar");
+    const transcriptText = document.getElementById("transcriptText");
 
-    // Populate active languages dynamically from backend
-    fetch('/languages')
-      .then(res => res.json())
-      .then(data => {
-        if (data.active_languages && data.active_languages.length > 0) {
-          languageSelect.innerHTML = '';
-          data.active_languages.forEach(code => {
-            const opt = document.createElement('option');
-            opt.value = code;
-            opt.textContent = `${code.toUpperCase()} (${code})`;
-            languageSelect.appendChild(opt);
-          });
-        }
-      })
-      .catch(() => {});
-
-    // Text Query Handler
-    submitBtn.addEventListener('click', async () => {
-      const text = queryInput.value.trim();
-      if (!text) return;
-      
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Processing...';
-
-      const formData = new FormData();
-      formData.append('text', text);
-      formData.append('language_hint', languageSelect.value);
-
-      try {
-        const response = await fetch('/query', {
-          method: 'POST',
-          body: formData
+    // Setup Language Switching
+    languageButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        languageButtons.forEach(b => {
+          b.classList.remove("bg-primary-emerald", "text-black", "shadow");
+          b.classList.add("text-text-muted");
         });
-        const data = await response.json();
-        renderResult(data);
-      } catch (err) {
-        alert('Query failed: ' + err);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Search & Ground';
+        btn.classList.add("bg-primary-emerald", "text-black", "shadow");
+        btn.classList.remove("text-text-muted");
+        currentLanguage = btn.getAttribute("data-lang");
+      });
+    });
+
+    // Enter Key on Input
+    queryInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        executeSearch();
       }
     });
 
-    // Audio Voice Recording via MediaRecorder API
-    recordBtn.addEventListener('click', async () => {
+    searchBtn.addEventListener("click", executeSearch);
+
+    async function executeSearch() {
+      const text = queryInput.value.trim();
+      if (!text) return;
+
+      searchBtn.disabled = true;
+      searchBtn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">progress_activity</span><span>Searching</span>`;
+
+      const formData = new FormData();
+      formData.append("text", text);
+      formData.append("language_hint", currentLanguage);
+
+      try {
+        const response = await fetch("/query", { method: "POST", body: formData });
+        const data = await response.json();
+        renderResults(data);
+      } catch (err) {
+        alert("Query error: " + err);
+      } finally {
+        searchBtn.disabled = false;
+        searchBtn.innerHTML = `<span>Execute</span><span class="material-symbols-outlined text-sm font-bold">arrow_forward</span>`;
+      }
+    }
+
+    // Voice Recording Integration
+    recordBtn.addEventListener("click", async () => {
       if (!isRecording) {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          
+          // Audio Analyser Setup for Waveform
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const source = audioContext.createMediaStreamSource(stream);
+          analyser = audioContext.createAnalyser();
+          analyser.fftSize = 64;
+          source.connect(analyser);
+          dataArray = new Uint8Array(analyser.frequencyBinCount);
+
           mediaRecorder = new MediaRecorder(stream);
           audioChunks = [];
 
-          mediaRecorder.ondataavailable = event => {
-            audioChunks.push(event.data);
-          };
-
+          mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
           mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            sendAudioQuery(audioBlob);
+            const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+            sendVoiceQuery(audioBlob);
+            if (audioContext) audioContext.close();
           };
 
           mediaRecorder.start();
           isRecording = true;
-          recordBtn.classList.add('recording');
-          recordBtn.textContent = '⏹ Stop & Send';
-          recordingStatus.style.display = 'block';
+          recordBtn.classList.remove("bg-emerald-500", "text-black");
+          recordBtn.classList.add("bg-red-500", "text-white", "pulse-ring");
+          recordRing.classList.add("opacity-100");
+          micStatusLabel.textContent = "Listening... Click to send";
+          micStatusLabel.classList.add("text-red-400");
+          micIcon.textContent = "stop";
         } catch (err) {
-          alert('Microphone access denied: ' + err);
+          alert("Microphone access denied: " + err);
         }
       } else {
         mediaRecorder.stop();
         isRecording = false;
-        recordBtn.classList.remove('recording');
-        recordBtn.textContent = '🎤 Speak (Record)';
-        recordingStatus.style.display = 'none';
+        recordBtn.classList.add("bg-emerald-500", "text-black");
+        recordBtn.classList.remove("bg-red-500", "text-white", "pulse-ring");
+        recordRing.classList.remove("opacity-100");
+        micStatusLabel.textContent = "Processing audio...";
+        micStatusLabel.classList.remove("text-red-400");
+        micIcon.textContent = "mic";
       }
     });
 
-    async function sendAudioQuery(blob) {
-      submitBtn.disabled = true;
+    async function sendVoiceQuery(blob) {
+      searchBtn.disabled = true;
       recordBtn.disabled = true;
-      
+
       const formData = new FormData();
-      formData.append('file', blob, 'recording.wav');
-      formData.append('language_hint', languageSelect.value);
+      formData.append("file", blob, "voice_input.wav");
+      formData.append("language_hint", currentLanguage);
 
       try {
-        const response = await fetch('/query', {
-          method: 'POST',
-          body: formData
-        });
+        const response = await fetch("/query", { method: "POST", body: formData });
         const data = await response.json();
-        renderResult(data);
+        renderResults(data);
       } catch (err) {
-        alert('Voice query failed: ' + err);
+        alert("Voice query failed: " + err);
       } finally {
-        submitBtn.disabled = false;
+        searchBtn.disabled = false;
         recordBtn.disabled = false;
+        micStatusLabel.textContent = "Click to Speak";
       }
     }
 
-    function renderResult(data) {
-      resultCard.classList.remove('hidden');
-      document.getElementById('answerText').textContent = data.answer;
+    function renderResults(data) {
+      // 1. Answer & Source Badge
+      answerContent.textContent = data.answer || "No grounded answer available.";
+      const src = (data.answer_source || "declined").toLowerCase();
+      answerSourceBadge.textContent = src.toUpperCase();
       
-      const badge = document.getElementById('answerBadge');
-      badge.textContent = data.answer_source.toUpperCase();
-      badge.className = 'badge badge-' + data.answer_source;
+      if (src === "extractive") {
+        answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+      } else if (src === "generated") {
+        answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/30";
+      } else {
+        answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-red-500/10 text-red-400 border border-red-500/30";
+      }
 
-      document.getElementById('retrievalTime').textContent = data.retrieval_ms.toFixed(1) + ' ms';
-      document.getElementById('totalTime').textContent = data.total_ms.toFixed(1) + ' ms';
-      
-      const gScore = data.guardrail_flags?.grounding_score;
-      document.getElementById('groundingScore').textContent = gScore !== undefined && gScore !== null ? gScore.toFixed(3) : 'N/A';
+      // 2. Transcribed query
+      if (data.transcript && data.transcript !== data.query) {
+        transcriptBar.classList.remove("hidden");
+        transcriptText.textContent = `"${data.transcript}"`;
+      } else {
+        transcriptBar.classList.add("hidden");
+      }
 
-      // Render Stage Timings
-      const tbody = document.getElementById('timingsBody');
-      tbody.innerHTML = '';
+      // 3. Latencies
+      totalLatencyTag.textContent = `${data.total_ms.toFixed(2)} ms`;
+      retrievalLatencyPill.textContent = `${data.retrieval_ms.toFixed(2)} ms`;
+      if (data.retrieval_ms < 200) {
+        retrievalStatusBadge.className = "px-1.5 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800";
+        retrievalStatusBadge.textContent = "PASS (<200ms)";
+      } else {
+        retrievalStatusBadge.className = "px-1.5 py-0.5 rounded text-[10px] bg-amber-950 text-amber-400 border border-amber-800";
+        retrievalStatusBadge.textContent = "REVIEW";
+      }
+
+      // 4. Waterfall Stages
+      waterfallContainer.innerHTML = "";
+      const maxMs = Math.max(...(data.stage_timings || []).map(s => s.ms), 10);
+
       (data.stage_timings || []).forEach(st => {
-        const row = document.createElement('tr');
+        const pct = Math.max(3, Math.min(100, (st.ms / maxMs) * 100));
+        const color = st.success ? "bg-emerald-400" : "bg-red-400";
+        
+        const row = document.createElement("div");
+        row.className = "flex items-center gap-3 text-xs font-mono";
         row.innerHTML = `
-          <td>${st.stage}</td>
-          <td>${st.ms.toFixed(2)} ms</td>
-          <td>${st.success ? '<span style="color:#10b981;">✓ PASS</span>' : '<span style="color:#ef4444;">✗ FAIL</span>'}</td>
-          <td style="color:#9ca3af; font-size:0.75rem;">${st.details || ''}</td>
+          <span class="w-32 text-text-muted truncate" title="${st.stage}">${st.stage.replace(/_/g, " ")}</span>
+          <div class="flex-1 bg-surface-input h-2 rounded-full overflow-hidden relative">
+            <div class="h-full ${color} rounded-full waterfall-bar" style="width: ${pct}%"></div>
+          </div>
+          <span class="w-16 text-right font-medium ${st.success ? 'text-white' : 'text-red-400'}">${st.ms.toFixed(1)}ms</span>
         `;
-        tbody.appendChild(row);
+        waterfallContainer.appendChild(row);
       });
 
-      // Render Passages
-      const pList = document.getElementById('passagesList');
-      pList.innerHTML = '';
-      (data.retrieved_chunks || []).forEach((c, idx) => {
-        const pItem = document.createElement('div');
-        pItem.className = 'passage-item';
-        pItem.innerHTML = `
-          <div style="font-size:0.75rem; color:#9ca3af; margin-bottom:0.25rem;">
-            #${idx+1} [${c.source_lang.toUpperCase()}] (${c.chunk_strategy}) • Score: ${c.final_score.toFixed(3)}
-          </div>
-          <div>${c.text}</div>
-        `;
-        pList.appendChild(pItem);
-      });
+      // 5. Guardrail Badges
+      const flags = data.guardrail_flags || {};
+      
+      // Safety
+      if (flags.unsafe_detected) {
+        safetyAuditBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-500/10 text-red-400 border border-red-500/30";
+        safetyAuditBadge.textContent = "BLOCKED";
+      } else {
+        safetyAuditBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+        safetyAuditBadge.textContent = "PASS";
+      }
+
+      // Topic
+      const dist = flags.off_topic_distance !== undefined ? flags.off_topic_distance : "--";
+      centroidDistText.textContent = dist;
+      if (flags.off_topic_detected) {
+        topicAuditBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-500/10 text-red-400 border border-red-500/30";
+        topicAuditBadge.textContent = "OFF-TOPIC";
+      } else {
+        topicAuditBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+        topicAuditBadge.textContent = "ON-TOPIC";
+      }
+
+      // Grounding
+      const gScore = flags.grounding_score !== undefined ? flags.grounding_score : "--";
+      groundingScoreText.textContent = typeof gScore === "number" ? gScore.toFixed(3) : gScore;
+      if (flags.grounding_passed) {
+        groundingAuditBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+        groundingAuditBadge.textContent = "GROUNDED";
+      } else {
+        groundingAuditBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30";
+        groundingAuditBadge.textContent = "UNGROUNDED";
+      }
+
+      // 6. Retrieved Passages
+      const chunks = data.retrieved_chunks || [];
+      topKBadge.textContent = `Top-K: ${chunks.length}`;
+      passagesList.innerHTML = "";
+
+      if (chunks.length === 0) {
+        passagesList.innerHTML = `<div class="text-xs text-text-muted font-mono py-6 text-center">No passages retrieved</div>`;
+      } else {
+        chunks.forEach((c, idx) => {
+          const item = document.createElement("div");
+          item.className = "p-4 rounded-xl bg-surface-input border border-surface-border hover:border-emerald-500/40 transition flex flex-col gap-2";
+          item.innerHTML = `
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-slate-800 text-slate-300 border border-slate-700">#${idx+1} [${c.source_lang}]</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800">${c.chunk_strategy}</span>
+              </div>
+              <div class="flex items-center gap-2 font-mono text-xs text-primary-emerald font-bold">
+                <span>Score: ${c.final_score.toFixed(3)}</span>
+                ${c.bm25_score !== null && c.bm25_score !== undefined ? `<span class="text-slate-500 font-normal text-[10px]">(BM25: ${c.bm25_score.toFixed(2)})</span>` : ''}
+              </div>
+            </div>
+            <p class="text-xs font-body text-slate-300 leading-relaxed">${c.text}</p>
+          `;
+          passagesList.appendChild(item);
+        });
+      }
     }
+
+    // Ambient Animated Waveform on Canvas
+    const canvas = document.getElementById("waveformCanvas");
+    const ctx = canvas.getContext("2d");
+
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    let wavePhase = 0;
+    function drawWave() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const w = canvas.width;
+      const h = canvas.height;
+      const centerY = h / 2;
+
+      ctx.beginPath();
+      ctx.strokeStyle = "rgba(16, 185, 129, 0.4)";
+      ctx.lineWidth = 1.5;
+
+      let freqFactor = 1;
+      if (analyser && dataArray) {
+        analyser.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        freqFactor = 1 + (avg / 25);
+      }
+
+      for (let x = 0; x < w; x += 4) {
+        const y = centerY + Math.sin((x * 0.015) + wavePhase) * (15 * freqFactor) * Math.sin(x / w * Math.PI);
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      wavePhase += 0.03;
+      requestAnimationFrame(drawWave);
+    }
+    drawWave();
   </script>
 </body>
 </html>
