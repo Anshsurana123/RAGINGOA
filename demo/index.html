@@ -132,10 +132,12 @@
             <span class="material-symbols-outlined text-sm">translate</span> Language:
           </span>
           <div id="languageButtons" class="flex gap-1.5 bg-surface-input p-1 rounded-xl border border-surface-border">
-            <button data-lang="hi" class="lang-btn px-3 py-1 text-xs font-mono font-medium rounded-lg bg-primary-emerald text-black shadow transition">Hindi (hi)</button>
-            <button data-lang="ta" class="lang-btn px-3 py-1 text-xs font-mono font-medium rounded-lg text-text-muted hover:text-white transition">Tamil (ta)</button>
+            <button data-lang="auto" class="lang-btn px-3 py-1 text-xs font-mono font-medium rounded-lg bg-primary-emerald text-black shadow transition">Auto-Detect</button>
             <button data-lang="en" class="lang-btn px-3 py-1 text-xs font-mono font-medium rounded-lg text-text-muted hover:text-white transition">English (en)</button>
+            <button data-lang="hi" class="lang-btn px-3 py-1 text-xs font-mono font-medium rounded-lg text-text-muted hover:text-white transition">Hindi (hi)</button>
+            <button data-lang="ta" class="lang-btn px-3 py-1 text-xs font-mono font-medium rounded-lg text-text-muted hover:text-white transition">Tamil (ta)</button>
           </div>
+          <span id="detectedLangPill" class="hidden px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800">ROUTED: EN</span>
         </div>
 
         <!-- Latency Target SLA Pill -->
@@ -309,7 +311,7 @@
   <!-- Audio Waveform Visualizer & Script Controller -->
   <script>
     // System State
-    let currentLanguage = "hi";
+    let currentLanguage = "auto";
     let isRecording = false;
     let mediaRecorder = null;
     let audioChunks = [];
@@ -325,6 +327,7 @@
     const searchBtn = document.getElementById("searchBtn");
     const queryInput = document.getElementById("queryInput");
     const languageButtons = document.querySelectorAll(".lang-btn");
+    const detectedLangPill = document.getElementById("detectedLangPill");
     const answerContent = document.getElementById("answerContent");
     const answerSourceBadge = document.getElementById("answerSourceBadge");
     const totalLatencyTag = document.getElementById("totalLatencyTag");
@@ -455,17 +458,28 @@
     }
 
     function renderResults(data) {
+      // 0. Update Detected Language Pill
+      if (data.language_detected) {
+        detectedLangPill.classList.remove("hidden");
+        detectedLangPill.textContent = `ROUTED: ${data.language_detected.toUpperCase()}`;
+      }
+
       // 1. Answer & Source Badge
-      answerContent.textContent = data.answer || "No grounded answer available.";
       const src = (data.answer_source || "declined").toLowerCase();
       answerSourceBadge.textContent = src.toUpperCase();
       
       if (src === "extractive") {
         answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+        answerContent.className = "text-sm md:text-base text-text-main leading-relaxed min-h-[80px]";
+        answerContent.textContent = data.answer || "No grounded answer available.";
       } else if (src === "generated") {
         answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/30";
+        answerContent.className = "text-sm md:text-base text-text-main leading-relaxed min-h-[80px]";
+        answerContent.textContent = data.answer || "No grounded answer available.";
       } else {
         answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-red-500/10 text-red-400 border border-red-500/30";
+        answerContent.className = "text-sm md:text-base text-red-300 bg-red-950/30 border border-red-800/50 p-4 rounded-xl leading-relaxed min-h-[80px]";
+        answerContent.innerHTML = `<div class="flex items-center gap-2 font-mono font-bold text-red-400 mb-1"><span class="material-symbols-outlined text-base">block</span>GUARDRAIL INTERVENTION: REQUEST DECLINED</div><div>${data.answer || "Request declined by safety or grounding guardrail."}</div>`;
       }
 
       // 2. Transcribed query

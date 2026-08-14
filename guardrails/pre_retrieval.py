@@ -16,21 +16,28 @@ from retrieval.embed import get_embedder
 logger = logging.getLogger(__name__)
 
 # Comprehensive multilingual unsafe / inappropriate keyword and regex patterns
-# Covers profanity, hate speech, self-harm, violent extremism, jailbreak attacks
+# Covers profanity, hate speech, self-harm, violent extremism, weapons, and jailbreak attacks
 UNSAFE_PATTERNS = [
     # Jailbreak / Prompt Injection patterns
-    r"(?i)\b(ignore (all )?previous instructions|system prompt|override safety|bypass filter|DAN mode)\b",
-    r"(?i)\b(jailbreak|prompt injection|developer mode enabled)\b",
+    r"(?i)\b(ignore\s+(all\s+)?(previous\s+)?(instructions|rules|prompts|directions))\b",
+    r"(?i)\b(system\s*prompt|override\s*safety|bypass\s*filter|DAN\s*mode|jailbreak|prompt\s*injection)\b",
+    r"(?i)\b(developer\s*mode\s*enabled|unfiltered\s*mode|disregard\s+(all\s+)?guidelines)\b",
+    r"(?i)\b(you\s*are\s*now\s*in\s*unrestricted\s*mode|act\s*as\s*an\s*unfiltered\s*ai)\b",
     
-    # Violence / Weapons / Dangerous materials
-    r"(?i)\b(how to build a bomb|make a weapon|synthesize poison|create explosive|commit suicide|self harm)\b",
-    r"(?i)(बम बनाने का तरीका|हथियार कैसे बनाएं|ज़हर कैसे बनाएं|आत्महत्या)",
-    r"(?i)(குண்டு தயாரிப்பது எப்படி|ஆயுதம் செய்வது|தற்கொலை)",
+    # Violence / Weapons / Explosives / Dangerous materials (flexible phrase and root matching)
+    r"(?i)\b(how\s+to\s+)?(make|build|create|craft|assemble|synthesize|manufacture|prepare|construct)\s+(a\s+)?(bomb|explosive|weapon|grenade|ied|molotov|poison|toxin|firearm|chemical\s+weapon|biological\s+weapon|gunpowder|detonator)\b",
+    r"(?i)\b(bomb\s*making|explosive\s*recipe|pipe\s*bomb|suicide\s*vest|car\s*bomb|dirty\s*bomb)\b",
+    r"(?i)\b(how\s+to\s+)?(kill|murder|attack|assassinate|stab|poison|torture|harm|abuse)\s+(someone|people|a\s+person|anybody|myself|yourself)\b",
+    r"(?i)\b(commit\s+suicide|how\s+to\s+hang\s+myself|self[- ]harm|slit\s+(my\s+)?wrists|kill\s+yourself|ways\s+to\s+die)\b",
     
-    # Profanity / Extreme slurs (representative cross-lingual filter)
-    r"(?i)\b(kill yourself|assassinate|terrorist attack|cyberattack government)\b",
-    r"(?i)(हत्या करो|आतंकवादी हमला|देशद्रोह)",
-    r"(?i)(கொலை செய்|பயங்கரவாத தாக்குதல்)",
+    # Cyberattacks / Illegal Exploits
+    r"(?i)\b(how\s+to\s+)?(hack|ddos\s+attack|bypass\s+security|steal\s+passwords|malware\s+source\s+code|ransomware\s+attack|exploit\s+vulnerability)\b",
+    
+    # Indic Safety Patterns (Hindi / Devanagari)
+    r"(?i)(बम\s*(बनाने|बनाना|तैयार)|विस्फोटक|हथियार\s*(बना|तैयार)|ज़हर\s*बना|आत्महत्या|फांसी\s*लगा|कत्ल\s*कर|जान\s*से\s*मार|आतंकवादी\s*हमला|देशद्रोह)",
+    
+    # Indic Safety Patterns (Tamil)
+    r"(?i)(குண்டு\s*(தயாரி|செய்வது)|வெடிகுண்டு|ஆயுதம்\s*செய்|விஷம்\s*தயாரி|தற்கொலை|கொலை\s*செய்|பயங்கரவாத\s*தாக்குதல்)",
 ]
 
 COMPILED_UNSAFE_REGEXES = [re.compile(p, re.UNICODE) for p in UNSAFE_PATTERNS]

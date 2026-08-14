@@ -11,6 +11,7 @@ Strict Requirements:
 
 import asyncio
 import logging
+import re
 import time
 from typing import Any, Dict, List, Optional
 import numpy as np
@@ -368,13 +369,14 @@ class RAGPipelineOrchestrator:
     def _resolve_target_language(self, text: str, hint: Optional[str]) -> str:
         """
         Dynamically detects or routes language against config.LANGUAGES.
-        Zero hardcoded if statements.
+        1. Checks character script Unicode blocks (Devanagari, Tamil, Bengali, Telugu, etc.).
+        2. Detects Latin script (English) when input consists of English letters.
+        3. Uses valid hint when script is ambiguous or matching.
         """
-        if hint and hint.lower() in config.LANGUAGES:
-            return hint.lower()
-            
-        # Detect script based on Unicode block matching against registry
-        for char in text:
+        cleaned = text.strip() if text else ""
+        
+        # 1. First scan for native Indic scripts
+        for char in cleaned:
             code = ord(char)
             # Devanagari (Hindi, Marathi, Sanskrit, Nepali)
             if 0x0900 <= code <= 0x097F:
@@ -403,7 +405,17 @@ class RAGPipelineOrchestrator:
                 if "gu" in config.LANGUAGES:
                     return "gu"
                     
-        # Default fallback to first entry in config.LANGUAGES or 'en'
+        # 2. Check if the text contains Latin letters (English)
+        has_latin = bool(re.search(r"[a-zA-Z]", cleaned))
+        if has_latin:
+            if "en" in config.LANGUAGES:
+                return "en"
+                
+        # 3. If no script was identifiable, rely on explicit hint if valid
+        if hint and hint.lower() in config.LANGUAGES and hint.lower() != "auto":
+            return hint.lower()
+            
+        # 4. Default fallback to 'en' or first language
         if "en" in config.LANGUAGES:
             return "en"
         return config.LANGUAGES[0]
