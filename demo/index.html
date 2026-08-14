@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice-Enabled Indic RAG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0b0f19;
+      --card-bg: #111827;
+      --card-border: #1f2937;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --code-bg: #030712;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+    .container {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin-bottom: 0.5rem;
+    }
+    header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    .form-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .input-group {
+      flex: 1;
+      min-width: 200px;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+    input[type="text"], select {
+      width: 100%;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus, select:focus {
+      border-color: var(--accent);
+    }
+    .button-group {
+      display: flex;
+      gap: 0.75rem;
+    }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background-color 0.2s, transform 0.1s;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:active { transform: scale(0.98); }
+    button.record-btn { background: #dc2626; }
+    button.record-btn.recording { background: #991b1b; animation: pulse 1.5s infinite; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-extractive { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .badge-declined { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .badge-generated { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .metric-box {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #60a5fa;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .metric-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+    .timings-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .timings-table th, .timings-table td {
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .timings-table th { color: var(--text-muted); font-weight: 600; }
+    .passages-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .passage-item {
+      background: var(--code-bg);
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Voice-Enabled Indic RAG</h1>
+      <p>Low-latency retrieval-augmented generation for Hindi, Tamil, and English</p>
+    </header>
+
+    <div class="card">
+      <div class="form-row">
+        <div class="input-group" style="flex: 0 0 160px;">
+          <label for="languageSelect">Language</label>
+          <select id="languageSelect">
+            <option value="hi">Hindi (hi)</option>
+            <option value="ta">Tamil (ta)</option>
+            <option value="en">English (en)</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label for="queryInput">Question / Prompt (Text or Spoken)</label>
+          <input type="text" id="queryInput" placeholder="Enter question or click Speak...">
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button id="submitBtn">Search & Ground</button>
+        <button id="recordBtn" class="record-btn">🎤 Speak (Record)</button>
+      </div>
+      <div id="recordingStatus" style="font-size: 0.85rem; color: #ef4444; margin-top: 0.5rem; display: none;">
+        ● Recording audio... Click Speak again to send.
+      </div>
+    </div>
+
+    <div id="resultCard" class="card hidden">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 style="font-size: 1.25rem;">Answer</h2>
+        <span id="answerBadge" class="badge">EXTRACTIVE</span>
+      </div>
+      <p id="answerText" style="font-size: 1.05rem; line-height: 1.6; margin-bottom: 1rem;"></p>
+
+      <div class="metrics-grid">
+        <div class="metric-box">
+          <div id="retrievalTime" class="metric-value">-- ms</div>
+          <div class="metric-label">Retrieval Latency (Target: ~200ms)</div>
+        </div>
+        <div class="metric-box">
+          <div id="totalTime" class="metric-value">-- ms</div>
+          <div class="metric-label">End-to-End Latency</div>
+        </div>
+        <div class="metric-box">
+          <div id="groundingScore" class="metric-value">--</div>
+          <div class="metric-label">Grounding Score</div>
+        </div>
+      </div>
+
+      <h3 style="font-size: 1rem; margin-top: 1.5rem; color: var(--text-muted);">Stage Latency Breakdown</h3>
+      <table class="timings-table">
+        <thead>
+          <tr>
+            <th>Stage</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody id="timingsBody"></tbody>
+      </table>
+
+      <h3 style="font-size: 1rem; margin-top: 1.5rem; color: var(--text-muted);">Retrieved Grounding Passages</h3>
+      <div id="passagesList" class="passages-container"></div>
+    </div>
+  </div>
+
+  <script>
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
+    const recordBtn = document.getElementById('recordBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const queryInput = document.getElementById('queryInput');
+    const languageSelect = document.getElementById('languageSelect');
+    const resultCard = document.getElementById('resultCard');
+    const recordingStatus = document.getElementById('recordingStatus');
+
+    // Populate active languages dynamically from backend
+    fetch('/languages')
+      .then(res => res.json())
+      .then(data => {
+        if (data.active_languages && data.active_languages.length > 0) {
+          languageSelect.innerHTML = '';
+          data.active_languages.forEach(code => {
+            const opt = document.createElement('option');
+            opt.value = code;
+            opt.textContent = `${code.toUpperCase()} (${code})`;
+            languageSelect.appendChild(opt);
+          });
+        }
+      })
+      .catch(() => {});
+
+    // Text Query Handler
+    submitBtn.addEventListener('click', async () => {
+      const text = queryInput.value.trim();
+      if (!text) return;
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Processing...';
+
+      const formData = new FormData();
+      formData.append('text', text);
+      formData.append('language_hint', languageSelect.value);
+
+      try {
+        const response = await fetch('/query', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await response.json();
+        renderResult(data);
+      } catch (err) {
+        alert('Query failed: ' + err);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Search & Ground';
+      }
+    });
+
+    // Audio Voice Recording via MediaRecorder API
+    recordBtn.addEventListener('click', async () => {
+      if (!isRecording) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+          };
+
+          mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            sendAudioQuery(audioBlob);
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+          recordBtn.classList.add('recording');
+          recordBtn.textContent = '⏹ Stop & Send';
+          recordingStatus.style.display = 'block';
+        } catch (err) {
+          alert('Microphone access denied: ' + err);
+        }
+      } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        recordBtn.classList.remove('recording');
+        recordBtn.textContent = '🎤 Speak (Record)';
+        recordingStatus.style.display = 'none';
+      }
+    });
+
+    async function sendAudioQuery(blob) {
+      submitBtn.disabled = true;
+      recordBtn.disabled = true;
+      
+      const formData = new FormData();
+      formData.append('file', blob, 'recording.wav');
+      formData.append('language_hint', languageSelect.value);
+
+      try {
+        const response = await fetch('/query', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await response.json();
+        renderResult(data);
+      } catch (err) {
+        alert('Voice query failed: ' + err);
+      } finally {
+        submitBtn.disabled = false;
+        recordBtn.disabled = false;
+      }
+    }
+
+    function renderResult(data) {
+      resultCard.classList.remove('hidden');
+      document.getElementById('answerText').textContent = data.answer;
+      
+      const badge = document.getElementById('answerBadge');
+      badge.textContent = data.answer_source.toUpperCase();
+      badge.className = 'badge badge-' + data.answer_source;
+
+      document.getElementById('retrievalTime').textContent = data.retrieval_ms.toFixed(1) + ' ms';
+      document.getElementById('totalTime').textContent = data.total_ms.toFixed(1) + ' ms';
+      
+      const gScore = data.guardrail_flags?.grounding_score;
+      document.getElementById('groundingScore').textContent = gScore !== undefined && gScore !== null ? gScore.toFixed(3) : 'N/A';
+
+      // Render Stage Timings
+      const tbody = document.getElementById('timingsBody');
+      tbody.innerHTML = '';
+      (data.stage_timings || []).forEach(st => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${st.stage}</td>
+          <td>${st.ms.toFixed(2)} ms</td>
+          <td>${st.success ? '<span style="color:#10b981;">✓ PASS</span>' : '<span style="color:#ef4444;">✗ FAIL</span>'}</td>
+          <td style="color:#9ca3af; font-size:0.75rem;">${st.details || ''}</td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      // Render Passages
+      const pList = document.getElementById('passagesList');
+      pList.innerHTML = '';
+      (data.retrieved_chunks || []).forEach((c, idx) => {
+        const pItem = document.createElement('div');
+        pItem.className = 'passage-item';
+        pItem.innerHTML = `
+          <div style="font-size:0.75rem; color:#9ca3af; margin-bottom:0.25rem;">
+            #${idx+1} [${c.source_lang.toUpperCase()}] (${c.chunk_strategy}) • Score: ${c.final_score.toFixed(3)}
+          </div>
+          <div>${c.text}</div>
+        `;
+        pList.appendChild(pItem);
+      });
+    }
+  </script>
+</body>
+</html>
