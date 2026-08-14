@@ -12,7 +12,26 @@ import asyncio
 import os
 import json
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any, List
+import sys
+
+# Compatibility shim for older packages importing HfFolder from huggingface_hub
+try:
+    import huggingface_hub
+    if not hasattr(huggingface_hub, "HfFolder"):
+        class DummyHfFolder:
+            @staticmethod
+            def get_token():
+                import os
+                return os.environ.get("HF_TOKEN") or None
+            @staticmethod
+            def save_token(token):
+                pass
+            @staticmethod
+            def delete_token():
+                pass
+        huggingface_hub.HfFolder = DummyHfFolder
+except Exception:
+    pass
 
 import gradio as gr
 
