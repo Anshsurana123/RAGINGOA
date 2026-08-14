@@ -59,6 +59,10 @@ def check_grounding(
     if not answer or not answer.strip():
         reason = "Empty answer produced"
         return False, 0.0, DECLINED_RESPONSE_TEMPLATE, reason
+
+    if "don't have enough grounded information" in answer.lower():
+        reason = "Context passages lacked sufficient factual information to answer question"
+        return False, 0.0, answer, reason
         
     if not retrieved_chunks:
         reason = "No retrieved context available to ground answer"

@@ -299,7 +299,7 @@ class RAGPipelineOrchestrator:
         )
         
         # -------------------------------------------------------------
-        # STAGE 7: Grounded Generation (Extractive / Cross-Lingual Synthesis)
+        # STAGE 7: Grounded Generation (LLM Synthesis & Multi-Source Fusion)
         # -------------------------------------------------------------
         gen_start_t = time.perf_counter()
         
@@ -307,8 +307,8 @@ class RAGPipelineOrchestrator:
         top_languages = [c.get("source_lang", "").lower() for c in reranked_chunks[:3]]
         has_cross_lingual_evidence = any(l != target_lang.lower() for l in top_languages if l)
         
-        if has_cross_lingual_evidence and config.LLM_API_KEY:
-            # Multi-source cross-lingual compilation & translation
+        if config.LLM_API_KEY and config.LLM_API_KEY.strip():
+            # Multi-source compilation & grounded synthesis with language awareness
             context_blocks = []
             for i, c in enumerate(reranked_chunks[:5]):
                 lang_code = c.get("source_lang", "UNK").upper()
@@ -321,13 +321,21 @@ class RAGPipelineOrchestrator:
                 context=compiled_context,
                 target_lang=target_lang,
             )
-            answer_source = "cross_lingual_synthesis"
-            gen_details = f"Cross-lingual multi-source synthesis into '{target_lang}' ({len(set(top_languages))} languages combined)"
+            
+            if "don't have enough grounded information" in candidate_answer.lower():
+                answer_source = "declined"
+                gen_details = "Declined: retrieved passages lack sufficient facts to answer question"
+            elif has_cross_lingual_evidence:
+                answer_source = "cross_lingual_synthesis"
+                gen_details = f"Cross-lingual multi-source synthesis into '{target_lang}' ({len(set(top_languages))} languages combined)"
+            else:
+                answer_source = "generated"
+                gen_details = f"Grounded LLM synthesis via {config.LLM_MODEL}"
         else:
             extractive_res = generate_extractive(raw_query_text, reranked_chunks)
             candidate_answer = extractive_res["answer"]
             answer_source = extractive_res["answer_source"]
-            gen_details = "Extractive-first grounded passage extraction (zero LLM overhead)"
+            gen_details = "Extractive-first grounded passage extraction (offline local fallback)"
         
         timings.append(StageTiming(
             stage="extractive_generation",

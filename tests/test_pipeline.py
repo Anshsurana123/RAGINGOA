@@ -280,5 +280,5 @@ class TestEndToEndPipeline:
         resp: QueryResponse = asyncio.run(orchestrator.execute(req))
         assert resp.language_detected == "en"
         assert len(resp.retrieved_chunks) > 0
-        assert resp.answer_source in ["extractive", "cross_lingual_synthesis"]
+        assert resp.answer_source in ["extractive", "cross_lingual_synthesis", "generated"]
         assert len(resp.answer) > 20
