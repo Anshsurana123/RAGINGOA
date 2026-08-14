@@ -28,6 +28,33 @@ def get_sarvam_language_code(lang: str) -> str:
     return code if code else "unknown"
 
 
+def normalize_audio_to_wav(input_path: str) -> str:
+    """
+    Converts any incoming browser/system audio format (WebM, Opus, Ogg, MP3, AAC, etc.)
+    into a clean 16kHz 16-bit mono PCM WAV file acceptable to Sarvam AI.
+    """
+    import subprocess
+    import tempfile
+    
+    out_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+    out_path = out_file.name
+    out_file.close()
+    
+    cmd = [
+        "ffmpeg", "-y", "-i", input_path,
+        "-ac", "1", "-ar", "16000", "-sample_fmt", "s16",
+        out_path
+    ]
+    try:
+        res = subprocess.run(cmd, capture_output=True, timeout=5)
+        if res.returncode == 0 and os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+            return out_path
+    except Exception as e:
+        logger.warning(f"Audio normalization via ffmpeg failed ({e}), using original file: {input_path}")
+        
+    return input_path
+
+
 class SarvamSTTClient:
     """
     Client for Sarvam Saaras v3 Speech-to-Text with batch and streaming fallback.
@@ -47,7 +74,7 @@ class SarvamSTTClient:
         else:
             logger.info("No SARVAM_API_KEY provided. STT running in mock/fallback mode.")
 
-    def transcribe(self, audio_path: str, language_code: str = "hi") -> Dict[str, Any]:
+    def transcribe(self, audio_path: str, language_code: str = "auto") -> Dict[str, Any]:
         """
         Batch transcription using Sarvam Saaras v3.
         """
@@ -69,10 +96,11 @@ class SarvamSTTClient:
         if not os.path.exists(audio_path):
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
             
+        normalized_path = normalize_audio_to_wav(audio_path)
         try:
-            with open(audio_path, "rb") as f:
+            with open(normalized_path, "rb") as f:
                 response = self.client.speech_to_text.transcribe(
-                    file=audio_path,
+                    file=f,
                     model=config.SARVAM_MODEL,
                     language_code=sarvam_lang,
                     mode=config.SARVAM_MODE,
@@ -83,9 +111,13 @@ class SarvamSTTClient:
             if not transcript and isinstance(response, dict):
                 transcript = response.get("transcript", "")
                 
+            detected_lang = getattr(response, "language_code", sarvam_lang)
+            if isinstance(response, dict):
+                detected_lang = response.get("language_code", detected_lang)
+                
             return {
                 "transcript": transcript,
-                "language_code": language_code,
+                "language_code": detected_lang or language_code,
                 "sarvam_code": sarvam_lang,
                 "confidence": 1.0,
                 "is_fallback": False,
@@ -94,6 +126,12 @@ class SarvamSTTClient:
         except Exception as e:
             logger.error(f"Sarvam batch transcription failed: {e}")
             raise RuntimeError(f"Sarvam STT failed: {e}")
+        finally:
+            if normalized_path != audio_path and os.path.exists(normalized_path):
+                try:
+                    os.unlink(normalized_path)
+                except Exception:
+                    pass
 
     async def transcribe_streaming(
         self, audio_path: str, language_code: str = "hi"
