@@ -1,0 +1,124 @@
+"""
+Global Configuration for Voice-Enabled Indic RAG System.
+
+CRITICAL EXTENSIBILITY RULE:
+`LANGUAGES` is the single source of truth for active languages across the entire codebase.
+All scripts (build_corpus.py, augment_longdocs.py, index_faiss.py, orchestrator.py,
+guardrails, API, etc.) MUST read dynamically from `LANGUAGES`.
+Extending to 13+ languages requires modifying ONLY this list.
+"""
+
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# ==========================================
+# 1. LANGUAGE CONFIGURATION (Single Source of Truth)
+# ==========================================
+# Default initial scope: Hindi (hi), Tamil (ta), and English (en)
+LANGUAGES = ["hi", "ta", "en"]
+
+# Comprehensive registry of supported Indic language metadata for MSMARCO-XI & STT mapping
+SUPPORTED_LANGUAGE_REGISTRY = {
+    "as": {"name": "Assamese", "script": "Beng", "msmarco_file": "asm", "sarvam_code": "as-IN"},
+    "bn": {"name": "Bengali", "script": "Beng", "msmarco_file": "ben", "sarvam_code": "bn-IN"},
+    "gu": {"name": "Gujarati", "script": "Gujr", "msmarco_file": "guj", "sarvam_code": "gu-IN"},
+    "hi": {"name": "Hindi", "script": "Deva", "msmarco_file": "hin", "sarvam_code": "hi-IN"},
+    "kn": {"name": "Kannada", "script": "Knda", "msmarco_file": "kan", "sarvam_code": "kn-IN"},
+    "ml": {"name": "Malayalam", "script": "Mlym", "msmarco_file": "mal", "sarvam_code": "ml-IN"},
+    "mr": {"name": "Marathi", "script": "Deva", "msmarco_file": "mar", "sarvam_code": "mr-IN"},
+    "ne": {"name": "Nepali", "script": "Deva", "msmarco_file": "nep", "sarvam_code": "ne-NP"},
+    "or": {"name": "Odia", "script": "Orya", "msmarco_file": "ori", "sarvam_code": "od-IN"},
+    "pa": {"name": "Punjabi", "script": "Guru", "msmarco_file": "pan", "sarvam_code": "pa-IN"},
+    "sa": {"name": "Sanskrit", "script": "Deva", "msmarco_file": "san", "sarvam_code": "sa-IN"},
+    "ta": {"name": "Tamil", "script": "Taml", "msmarco_file": "tam", "sarvam_code": "ta-IN"},
+    "te": {"name": "Telugu", "script": "Telu", "msmarco_file": "tel", "sarvam_code": "te-IN"},
+    "ur": {"name": "Urdu", "script": "Arab", "msmarco_file": "urd", "sarvam_code": "ur-IN"},
+    "en": {"name": "English", "script": "Latn", "msmarco_file": "eng", "sarvam_code": "en-IN"},
+}
+
+def get_language_info(lang_code: str) -> dict:
+    """Retrieve metadata for any registered language code with safe fallback."""
+    return SUPPORTED_LANGUAGE_REGISTRY.get(
+        lang_code,
+        {
+            "name": lang_code.upper(),
+            "script": "Unknown",
+            "msmarco_file": lang_code,
+            "sarvam_code": f"{lang_code}-IN",
+        },
+    )
+
+# ==========================================
+# 2. PATHS CONFIGURATION
+# ==========================================
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = Path(os.getenv("DATA_DIR", BASE_DIR / "data"))
+RAW_DATA_DIR = DATA_DIR / "raw"
+PROCESSED_DATA_DIR = DATA_DIR / "processed"
+INDEX_DIR = DATA_DIR / "indexes"
+BENCHMARK_RESULTS_DIR = BASE_DIR / "benchmark" / "results"
+
+for d in [DATA_DIR, RAW_DATA_DIR, PROCESSED_DATA_DIR, INDEX_DIR, BENCHMARK_RESULTS_DIR]:
+    d.mkdir(parents=True, exist_ok=True)
+
+# ==========================================
+# 3. EMBEDDING & VECTOR RETRIEVAL CONFIG
+# ==========================================
+# intfloat/multilingual-e5-small (MUST use 'query: ' and 'passage: ' prefixes)
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "intfloat/multilingual-e5-small")
+EMBEDDING_DIM = 384
+QUERY_PREFIX = "query: "
+PASSAGE_PREFIX = "passage: "
+
+# FAISS HNSW Index Hyperparameters
+HNSW_M = 32
+HNSW_EF_CONSTRUCTION = 200
+HNSW_EF_SEARCH = 64
+
+# Retrieval Top-K defaults
+FAISS_TOP_K = 15
+RERANK_TOP_K = 5
+HYBRID_BM25_WEIGHT = 0.35  # Dense score weight = 1 - HYBRID_BM25_WEIGHT
+
+# ==========================================
+# 4. CHUNKING CONFIGURATION
+# ==========================================
+SENTENCE_WINDOW_SIZE = 1  # +-1 sentence window context
+CHUNK_OVERLAP_PERCENT = 0.15  # 15% token overlap
+SEMANTIC_SIMILARITY_THRESHOLD = 0.65  # Cosine distance spike threshold
+
+# ==========================================
+# 5. STT CONFIGURATION (Sarvam Saaras v3)
+# ==========================================
+SARVAM_API_KEY = os.getenv("SARVAM_API_KEY", "")
+SARVAM_MODEL = "saaras:v3"
+SARVAM_MODE = "transcribe"
+SARVAM_STT_TIMEOUT_SECONDS = 10.0
+SARVAM_STT_MAX_RETRIES = 1
+
+# ==========================================
+# 6. GUARDRAIL THRESHOLDS
+# ==========================================
+# Pre-retrieval off-topic cosine distance threshold from nearest corpus centroid
+OFF_TOPIC_DISTANCE_THRESHOLD = 0.78  # Cosine distance (1 - cosine_similarity)
+
+# Post-generation grounding check threshold (lexical + semantic overlap)
+GROUNDING_OVERLAP_THRESHOLD = 0.30
+
+# ==========================================
+# 7. LLM FALLBACK GENERATION CONFIG
+# ==========================================
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
+LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+LLM_TIMEOUT_SECONDS = 15.0
+
+# ==========================================
+# 8. SERVER CONFIGURATION
+# ==========================================
+HOST = os.getenv("HOST", "0.0.0.0")
+PORT = int(os.getenv("PORT", "7860"))
