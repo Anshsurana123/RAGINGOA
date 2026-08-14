@@ -1,17 +1,16 @@
 """
 Hugging Face Space Application for Hacker House Goa 2026: Voice-Enabled Indic RAG.
-Features:
-- Complete Retro-Tropical Command Center Web UI at / (matching localhost:8000)
-- Full FastAPI backend for Voice / Text RAG (/query, /health, /languages, /)
-- Gradio fallback interface mounted at /gradio
-- ZeroGPU compatible
+Renders the full retro-tropical Command Center UI and exposes FastAPI endpoints.
+ZeroGPU compatible.
 """
 
 import asyncio
 import json
 import os
 from pathlib import Path
+import shutil
 import sys
+import tempfile
 from typing import Any, Dict, List, Optional, Tuple
 
 # Compatibility shim for older packages importing HfFolder from huggingface_hub
@@ -34,13 +33,9 @@ except Exception:
     pass
 
 import gradio as gr
-import uvicorn
-from fastapi.responses import HTMLResponse
-
-import config
-from api.main import app as fastapi_app
-from pipeline.orchestrator import get_orchestrator
-from pipeline.schemas import QueryRequest, QueryResponse
+from fastapi import File, Form, HTTPException, UploadFile, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
 
 # ZeroGPU decorator shim
 try:
@@ -55,37 +50,11 @@ except ImportError:
                 return decorator
             return func
 
-
-@spaces.GPU
-def run_gradio_query(
-    audio_path: Optional[str],
-    text_query: Optional[str],
-    language_hint: str,
-    cross_lingual: bool,
-) -> Tuple[str, str, str, str]:
-    """Fallback Gradio interface handler."""
-    if not audio_path and (not text_query or not text_query.strip()):
-        return "⚠️ Please provide either a spoken voice recording or text query.", "", "N/A", "0.0 ms"
-    
-    hint = language_hint.strip() if language_hint and language_hint != "auto" else None
-    req = QueryRequest(
-        audio_path=audio_path if audio_path else None,
-        text=text_query.strip() if text_query and text_query.strip() else None,
-        language_hint=hint,
-        cross_lingual=cross_lingual,
-    )
-    
-    orchestrator = get_orchestrator()
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-    import nest_asyncio
-    nest_asyncio.apply()
-    res: QueryResponse = loop.run_until_complete(orchestrator.execute(req))
-    return res.answer, res.query or res.transcript, res.language_detected.upper(), f"{res.total_ms:.1f} ms"
+import config
+from pipeline.orchestrator import get_orchestrator
+from pipeline.schemas import QueryRequest, QueryResponse
+from retrieval.embed import get_embedder
+from retrieval.index_faiss import get_index_manager
 
 
 # Read the full custom HTML Command Center UI
@@ -97,15 +66,141 @@ def get_custom_html() -> str:
     return "<h1>Hacker House Goa 2026 Command Center</h1>"
 
 
-# Minimal Gradio demo for ZeroGPU registration
-with gr.Blocks(title="🌴 Hacker House Goa 2026 - Voice Indic RAG", theme=gr.themes.Soft(primary_hue="emerald")) as demo:
-    gr.HTML(get_custom_html())
+@spaces.GPU
+def _dummy_zerogpu():
+    """ZeroGPU requirement: at least one function registered to event scan."""
+    return True
 
-# Mount Gradio app into FastAPI
-app = gr.mount_gradio_app(fastapi_app, demo, path="/gradio")
+
+# Build Gradio Blocks UI embedding the exact Command Center frontend
+CUSTOM_CSS = """
+body, html, .gradio-container, gradio-app {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    background-color: #FEF8EA !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+footer, .svelte-10ymbgw, .built-with {
+    display: none !important;
+}
+.contain {
+    max-width: 100% !important;
+    padding: 0 !important;
+}
+"""
+
+with gr.Blocks(title="🌴 Hacker House Goa 2026 — Voice Indic RAG", css=CUSTOM_CSS) as demo:
+    gr.HTML(get_custom_html())
+    # Hidden dummy button to ensure ZeroGPU handler registration
+    dummy_btn = gr.Button("zero_gpu_anchor", visible=False)
+    dummy_btn.click(fn=_dummy_zerogpu)
+
+
+# Preload embedding model and index manager at startup
+print("[Space Startup] Preloading embedding model and FAISS vector indexes...")
+get_embedder()
+get_index_manager()
+print("[Space Startup] Models and FAISS indexes preloaded successfully.")
+
+
+# Attach FastAPI endpoints directly to demo.app
+app = demo.app
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health", response_class=JSONResponse)
+async def health_check() -> Dict[str, Any]:
+    """Health check reporting system and index readiness."""
+    index_mgr = get_index_manager()
+    index_stats = {
+        name: idx.index.ntotal for name, idx in index_mgr.indexes.items()
+    }
+    return {
+        "status": "healthy",
+        "configured_languages": config.LANGUAGES,
+        "embedding_model": config.EMBEDDING_MODEL_NAME,
+        "indexes_loaded": index_stats,
+        "centroids_available": list(index_mgr.centroids.keys()),
+        "sarvam_stt_configured": bool(config.SARVAM_API_KEY),
+        "llm_fallback_configured": bool(config.LLM_API_KEY),
+    }
+
+
+@app.get("/languages", response_class=JSONResponse)
+async def get_supported_languages() -> Dict[str, Any]:
+    """Returns metadata for all currently configured active languages."""
+    lang_details = [
+        {"code": l, **config.get_language_info(l)} for l in config.LANGUAGES
+    ]
+    return {
+        "active_languages": config.LANGUAGES,
+        "language_details": lang_details,
+    }
+
+
+@app.post("/query", response_model=QueryResponse)
+async def query_pipeline(
+    file: Optional[UploadFile] = File(None),
+    text: Optional[str] = Form(None),
+    language_hint: Optional[str] = Form(None),
+    cross_lingual: Optional[bool] = Form(True),
+    request_body: Optional[QueryRequest] = None,
+) -> QueryResponse:
+    """
+    Execute end-to-end Voice RAG query for the Command Center UI.
+    """
+    orchestrator = get_orchestrator()
+    temp_audio_path = None
+    
+    try:
+        if request_body and (request_body.text or request_body.audio_path):
+            return await orchestrator.execute(request_body)
+            
+        if file and file.filename:
+            suffix = Path(file.filename).suffix or ".wav"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                shutil.copyfileobj(file.file, tmp)
+                temp_audio_path = tmp.name
+                
+            req = QueryRequest(
+                audio_path=temp_audio_path,
+                language_hint=language_hint,
+                cross_lingual=True if cross_lingual is None else cross_lingual,
+            )
+            return await orchestrator.execute(req)
+            
+        if text and text.strip():
+            req = QueryRequest(
+                text=text.strip(),
+                language_hint=language_hint,
+                cross_lingual=True if cross_lingual is None else cross_lingual,
+            )
+            return await orchestrator.execute(req)
+            
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either 'file' audio upload or 'text' query must be provided.",
+        )
+    finally:
+        if temp_audio_path and os.path.exists(temp_audio_path):
+            try:
+                os.remove(temp_audio_path)
+            except Exception:
+                pass
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "7860"))
     host = os.getenv("HOST", "0.0.0.0")
     print(f"🌴 Starting Hacker House Goa Command Center UI on http://{host}:{port}")
-    uvicorn.run(fastapi_app, host=host, port=port)
+    demo.queue().launch(server_name=host, server_port=port)
