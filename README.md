@@ -54,12 +54,20 @@ graph TD
   - Prompt Injection & System Exfiltration Defense: Detects and blocks jailbreaks, DAN modes, roleplay overrides, and attempts to leak system instructions or internal file metadata.
   - Neural Safety Model: Groq LPU-accelerated safety classifier evaluating complex multi-lingual semantic intent.
 - **Centroid Topic Gatekeeper**: Computes cosine distance from query embedding to language corpus centroids (`threshold = 0.85`), skipping retrieval for out-of-domain queries.
-- **Grounded Reading Comprehension**: If context passages lack necessary facts, the model honestly emits an `INSUFFICIENT CONTEXT` Grounding Notice rather than hallucinating facts.
-
 ### 4. 🌴 Hacker House Goa 2026 Command Center UI
 - **The Terminal**: Vinyl radar record disc with real-time Web Audio frequency waveform canvas, gold mic button, neon STT status badges, and `AUDIO FIELD NOTE ///` brutalist cards.
 - **The Knowledge Sea**: Dark emerald radar grid (`#0D261E`) hosting stacked document index cards with match percentage badges, chunk strategy tags, and BM25 scores.
 - **SYS Telemetry & Performance Deck**: Sub-millisecond 4-stage waterfall breakdown (`STT`, `RETRIEVAL`, `GUARDRAIL`, `GENERATION`), benchmark quantiles (`P50: 45.7ms`, `P70: 48.4ms`, `P100: 118.5ms`), and a 4-tier Guardrail Audit Matrix.
+
+### 5. 🧩 Advanced Multi-Strategy Chunking & Indexing
+Rather than naive fixed-size token splitting, the pipeline implements **3 specialized chunking strategies** across separate FAISS HNSW indexes merged via Reciprocal Rank Fusion:
+- **Passage-Native Chunking (`chunking/passage_native.py`)**: Zero-loss atomic preservation of QA passages maintaining exact query-passage alignment and document provenance.
+- **Sentence-Window Chunking with $\ge 15\%$ Overlap (`chunking/sentence_window.py`)**: Separates search focus from generation context by embedding a central sentence (`embed_text`) while attaching $\pm 1$ surrounding sentences with 15% sliding window token overlap to guarantee narrative continuity.
+- **Semantic Cosine-Spike Splitter (`chunking/semantic.py`)**: Computes sentence embedding distance gradients $d(S_i, S_{i+1}) = 1.0 - \cos(S_i, S_{i+1})$ using `multilingual-e5-small` and splits at statistical distance spikes ($\mu + 0.5\sigma$) to preserve coherent thematic ideas.
+- **Multilingual Sentence Tokenizer (`chunking/metadata.py`)**: Custom sentence boundary regex supporting Latin punctuation (`.!?`), Devanagari Danda (`।`, `॥`), and Tamil markers.
+- **Metadata-Aware Schema (`chunking/metadata.py`)**: Strongly typed dataclasses carrying `chunk_id`, `strategy`, `source_lang`, `token_count`, `doc_id`, `title`, and `context_window`.
+- **Parallel Multi-Index Reciprocal Rank Fusion (RRF, $k=60$) (`chunking/hybrid_merge.py`)**: Parallel search across `passage_native` (2,100 vectors) and `semantic_longdoc` (370 vectors) indexes, deduplicating and ranking by multi-strategy consensus score:
+  $$\text{RRF}(d) = \sum_{s \in \text{strategies}} \frac{w_s}{60 + r_s(d)}$$
 
 ---
 
