@@ -21,8 +21,11 @@ logger = logging.getLogger(__name__)
 
 # Map internal ISO language codes (hi, ta, en, etc.) to Sarvam language codes
 def get_sarvam_language_code(lang: str) -> str:
-    info = config.get_language_info(lang)
-    return info.get("sarvam_code", "hi-IN")
+    if not lang or str(lang).lower() in ["auto", "unknown", "none", ""]:
+        return "unknown"
+    info = config.get_language_info(str(lang).lower())
+    code = info.get("sarvam_code", "unknown")
+    return code if code else "unknown"
 
 
 class SarvamSTTClient:

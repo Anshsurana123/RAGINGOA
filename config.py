@@ -42,13 +42,20 @@ SUPPORTED_LANGUAGE_REGISTRY = {
 
 def get_language_info(lang_code: str) -> dict:
     """Retrieve metadata for any registered language code with safe fallback."""
+    if not lang_code or lang_code.lower() in ["auto", "unknown", "none", ""]:
+        return {
+            "name": "Auto-Detect",
+            "script": "Unknown",
+            "msmarco_file": "unknown",
+            "sarvam_code": "unknown",
+        }
     return SUPPORTED_LANGUAGE_REGISTRY.get(
-        lang_code,
+        lang_code.lower(),
         {
             "name": lang_code.upper(),
             "script": "Unknown",
             "msmarco_file": lang_code,
-            "sarvam_code": f"{lang_code}-IN",
+            "sarvam_code": "unknown",
         },
     )
 
