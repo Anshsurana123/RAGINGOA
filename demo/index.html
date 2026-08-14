@@ -244,7 +244,7 @@
       </div>
 
       <!-- AUDIO FIELD NOTE (TRANSCRIPTION CARD) -->
-      <div id="fieldNoteCard" class="bg-white border-4 border-black shadow-brutal p-5 relative overflow-hidden">
+      <div id="fieldNoteCard" class="hidden bg-white border-4 border-black shadow-brutal p-5 relative overflow-hidden">
         
         <!-- Hacker House Goa Palm Seal Stamp (Watermark) -->
         <div class="absolute right-3 top-3 w-14 h-14 rounded-full border-2 border-dashed border-amber-500/50 flex flex-col items-center justify-center text-[7px] font-mono text-amber-700 pointer-events-none rotate-12 stamp-watermark">
@@ -258,7 +258,6 @@
           <span>///</span>
         </div>
         <p id="fieldNoteText" class="font-serif text-lg md:text-xl text-black font-semibold italic leading-relaxed">
-          "What is Hacker House Goa 2026?"
         </p>
       </div>
 
@@ -270,53 +269,22 @@
       <!-- Section Title -->
       <div class="flex items-center justify-between">
         <h2 class="font-display font-black text-2xl md:text-3xl text-black title-highlight">THE KNOWLEDGE SEA</h2>
-        <span id="topKBadge" class="px-2 py-0.5 bg-black text-hhemerald text-[10px] font-mono font-bold shadow-brutal-sm">TOP-K: 5 PASSAGES</span>
+        <span id="topKBadge" class="px-2 py-0.5 bg-black text-hhemerald text-[10px] font-mono font-bold shadow-brutal-sm">AWAITING QUERY</span>
       </div>
 
       <!-- The Knowledge Sea Passage Stream Deck -->
       <div class="sea-grid border-4 border-black shadow-brutal-lg p-5 rounded-none flex flex-col gap-4 min-h-[420px] max-h-[480px] overflow-y-auto">
-        <div id="passagesList" class="flex flex-col gap-4">
+        <div id="passagesList" class="flex flex-col gap-4 items-center justify-center min-h-[360px]">
           
-          <!-- Default Mock Sample 1 -->
-          <div class="p-4 bg-sand-100 border-2 border-black shadow-brutal relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-2 font-mono text-xs font-bold">
-                <span class="material-symbols-outlined text-sm text-hhdarkgreen">database</span>
-                <span>DOC_REF: EN_LONGDOC_0001_SW_0</span>
-              </div>
-              <span class="px-2 py-0.5 bg-hhgold border border-black font-mono text-[10px] font-black uppercase">98% MATCH</span>
+          <!-- Clean Ready Empty State -->
+          <div class="p-8 text-center flex flex-col items-center justify-center gap-3">
+            <div class="w-12 h-12 rounded-full border-2 border-dashed border-emerald-500/40 flex items-center justify-center text-emerald-400 font-mono text-xl">
+              🌊
             </div>
-            <p class="font-serif text-sm text-black leading-relaxed">
-              "Hacker House Goa 2026 is an elite engineering residency and builder gathering hosted in a secluded tropical estate in Goa, India, bringing together leading researchers to pioneer voice-enabled multilingual RAG architectures."
+            <div class="font-mono text-sm text-emerald-400 font-bold tracking-wider">AWAITING QUERY INPUT</div>
+            <p class="font-serif text-xs text-slate-400 max-w-sm leading-relaxed">
+              Speak into The Terminal or enter a query above to retrieve and fuse grounded multi-lingual passages from the indexed knowledge sea.
             </p>
-            <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-slate-600">
-              <span class="flex items-center gap-1">
-                <span class="px-1.5 py-0.5 bg-sky-900 text-sky-200 rounded font-bold uppercase">EN</span>
-                <span>SEMANTIC SENTENCE WINDOW</span>
-              </span>
-              <span>BM25: 14.82</span>
-            </div>
-          </div>
-
-          <!-- Default Mock Sample 2 -->
-          <div class="p-4 bg-sand-100 border-2 border-black shadow-brutal relative overflow-hidden">
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-2 font-mono text-xs font-bold">
-                <span class="material-symbols-outlined text-sm text-hhdarkgreen">database</span>
-                <span>DOC_REF: HI_LONGDOC_0004_NAT_2</span>
-              </div>
-              <span class="px-2 py-0.5 bg-hhgold border border-black font-mono text-[10px] font-black uppercase">94% MATCH</span>
-            </div>
-            <p class="font-serif text-sm text-black leading-relaxed">
-              "हैकर हाउस गोवा में यदि कोई प्रश्न विषय या एआई आर्किटेक्चर से संबंधित नहीं है, तो सिस्टम हॉलुसिनेशन रोकने के लिए उत्तर अस्वीकार कर देता है।"
-            </p>
-            <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-slate-600">
-              <span class="flex items-center gap-1">
-                <span class="px-1.5 py-0.5 bg-amber-900 text-amber-200 rounded font-bold uppercase">HI</span>
-                <span>PASSAGE NATIVE FUSION</span>
-              </span>
-              <span>BM25: 12.10</span>
-            </div>
           </div>
 
         </div>
@@ -333,18 +301,18 @@
       <!-- Top Grounded Header Strip -->
       <div class="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b-2 border-black">
         <div class="flex items-center gap-2 font-mono font-bold text-xs">
-          <span id="answerStatusIcon" class="material-symbols-outlined text-hhdarkgreen text-lg font-bold">verified</span>
-          <span id="answerStatusTag" class="text-hhdarkgreen tracking-wider uppercase">GROUNDED ANSWER GENERATED</span>
+          <span id="answerStatusIcon" class="material-symbols-outlined text-slate-500 text-lg font-bold">hourglass_empty</span>
+          <span id="answerStatusTag" class="text-slate-600 tracking-wider uppercase">READY FOR INQUIRY</span>
         </div>
         <div class="flex items-center gap-2">
-          <span id="answerSourceBadge" class="px-2 py-0.5 bg-black text-hhgold font-mono text-[10px] font-bold uppercase border border-black shadow-brutal-sm">CROSS-LINGUAL FEDERATION</span>
-          <span id="retrievalTimePill" class="px-2 py-0.5 bg-sand-200 border border-black font-mono text-[10px] font-bold text-black">LATENCY: 56.4ms</span>
+          <span id="answerSourceBadge" class="px-2 py-0.5 bg-black text-hhgold font-mono text-[10px] font-bold uppercase border border-black shadow-brutal-sm">STANDBY</span>
+          <span id="retrievalTimePill" class="px-2 py-0.5 bg-sand-200 border border-black font-mono text-[10px] font-bold text-black">LATENCY: --</span>
         </div>
       </div>
 
       <!-- Main Answer Paragraph in High-Readability Editorial Serif -->
-      <div id="answerContent" class="font-serif text-lg md:text-xl text-black leading-relaxed min-h-[70px]">
-        Hacker House Goa 2026 is an event hosted at a secluded tropical estate in Goa, India, that focuses heavily on Voice-Enabled Multilingual Intelligence and RAG pipelines across Hindi, Tamil, and English.
+      <div id="answerContent" class="font-serif text-base md:text-lg text-slate-500 italic leading-relaxed min-h-[70px] flex items-center">
+        Awaiting query... Speak into The Terminal mic or type a prompt above to generate grounded answers.
       </div>
     </div>
   </section>
