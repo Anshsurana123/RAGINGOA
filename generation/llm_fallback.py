@@ -77,20 +77,27 @@ class LLMAdapter:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) VoiceRAG/1.0",
         }
         
-        req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
-        
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as response:
-                if response.status == 200:
-                    resp_body = json.loads(response.read().decode("utf-8"))
-                    answer = resp_body["choices"][0]["message"]["content"].strip()
-                    return answer
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=self.timeout) as response:
+                    if response.status == 200:
+                        resp_body = json.loads(response.read().decode("utf-8"))
+                        answer = resp_body["choices"][0]["message"]["content"].strip()
+                        return answer
+                    else:
+                        logger.warning(f"LLM API attempt {attempt} returned HTTP {response.status}")
+            except Exception as e:
+                logger.warning(f"LLM API attempt {attempt}/{max_retries} failed: {e}")
+                if attempt < max_retries:
+                    import time
+                    time.sleep(0.5 * (2 ** (attempt - 1)))
                 else:
-                    logger.warning(f"LLM API returned status {response.status}")
+                    logger.error(f"All {max_retries} LLM attempts exhausted. Recovering via local deterministic synthesis.")
                     return self._local_fallback_synthesize(prompt, context)
-        except Exception as e:
-            logger.warning(f"LLM API call failed ({e}). Falling back to local synthesis.")
-            return self._local_fallback_synthesize(prompt, context)
+                    
+        return self._local_fallback_synthesize(prompt, context)
 
     def _local_fallback_synthesize(self, prompt: str, context: str) -> str:
         """

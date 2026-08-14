@@ -86,19 +86,25 @@ def check_neural_safety(text: str) -> Tuple[bool, Optional[str]]:
         "Authorization": f"Bearer {api_key.strip()}",
         "User-Agent": "Mozilla/5.0 VoiceRAG/1.0"
     }
-    req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=3.0) as res:
-            raw = json.loads(res.read().decode("utf-8"))
-            parsed = json.loads(raw["choices"][0]["message"]["content"].strip())
-            is_safe = parsed.get("is_safe", True)
-            if not is_safe:
-                reason = f"Blocked by Neural Guardrail: {parsed.get('reason', 'Harmful or hazardous content detected')}"
-                logger.warning(f"Neural Safety Guardrail triggered: {reason}")
-                return False, reason
-    except Exception as e:
-        logger.debug(f"Neural guardrail check skipped/failed: {e}")
-        
+    max_retries = 2
+    for attempt in range(1, max_retries + 1):
+        try:
+            req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=3.0) as res:
+                raw = json.loads(res.read().decode("utf-8"))
+                parsed = json.loads(raw["choices"][0]["message"]["content"].strip())
+                is_safe = parsed.get("is_safe", True)
+                if not is_safe:
+                    reason = f"Blocked by Neural Guardrail: {parsed.get('reason', 'Harmful or hazardous content detected')}"
+                    logger.warning(f"Neural Safety Guardrail triggered: {reason}")
+                    return False, reason
+                return True, None
+        except Exception as e:
+            logger.debug(f"Neural guardrail check attempt {attempt} failed: {e}")
+            if attempt < max_retries:
+                import time
+                time.sleep(0.3)
+            
     return True, None
 
 
