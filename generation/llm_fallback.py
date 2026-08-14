@@ -34,23 +34,30 @@ class LLMAdapter:
         self.model = model or config.LLM_MODEL
         self.timeout = timeout
 
-    def generate(self, prompt: str, context: str) -> str:
+    def generate(self, prompt: str, context: str, target_lang: Optional[str] = None) -> str:
         """
         Generate synthesized response grounded strictly in provided context passages.
+        Supports cross-lingual multi-source synthesis (e.g. reading Hindi & Tamil context,
+        compiling and translating the answer into English or the requested target language).
         """
         if not self.api_key or not self.api_key.strip():
             logger.info("No LLM_API_KEY configured. Using local deterministic multi-passage synthesis.")
             return self._local_fallback_synthesize(prompt, context)
             
+        lang_instruction = f"Respond in '{target_lang}'." if target_lang else "Respond in the same language as the user query."
+        
         system_prompt = (
-            "You are a factual, concise multilingual assistant. "
-            "Answer the user query accurately based ONLY on the provided context passages. "
-            "Respond in the same language as the user query. "
-            "If the context does not contain sufficient facts to answer, respond with "
+            "You are an expert multilingual, cross-lingual RAG intelligence system. "
+            "You are provided with context passages retrieved across multiple languages (English, Hindi, Tamil). "
+            "Instructions:\n"
+            "1. Extract all factual information relevant to the question from ALL provided passages regardless of passage language.\n"
+            f"2. Synthesize a complete, fluent, and comprehensive answer strictly in the target language: {lang_instruction}\n"
+            "3. Base your answer ONLY on facts present in the context passages. Do not invent or assume facts.\n"
+            "4. If the context does not contain sufficient facts to answer the question, respond with "
             "'I don't have enough grounded information to answer that.'"
         )
         
-        user_content = f"Context Passages:\n{context}\n\nQuestion: {prompt}\n\nAnswer:"
+        user_content = f"Multi-Language Context Passages:\n{context}\n\nUser Question: {prompt}\n\nCompiled Grounded Answer:"
         
         endpoint = f"{self.base_url}/chat/completions"
         payload = {
@@ -60,7 +67,7 @@ class LLMAdapter:
                 {"role": "user", "content": user_content},
             ],
             "temperature": 0.1,
-            "max_tokens": 256,
+            "max_tokens": 350,
         }
         
         data = json.dumps(payload).encode("utf-8")
@@ -108,6 +115,6 @@ def get_llm_adapter() -> LLMAdapter:
     return _LLM_ADAPTER_INSTANCE
 
 
-def generate(prompt: str, context: str) -> str:
+def generate(prompt: str, context: str, target_lang: Optional[str] = None) -> str:
     """Convenience functional wrapper for LLM generation."""
-    return get_llm_adapter().generate(prompt, context)
+    return get_llm_adapter().generate(prompt, context, target_lang=target_lang)

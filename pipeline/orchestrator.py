@@ -230,16 +230,19 @@ class RAGPipelineOrchestrator:
         ))
         
         # -------------------------------------------------------------
-        # STAGE 5: Multi-Strategy FAISS Retrieval & Candidate Merging
+        # STAGE 5: Multi-Strategy FAISS Retrieval & Cross-Lingual Federation
         # -------------------------------------------------------------
         retrieval_start_t = time.perf_counter()
         strategy_results: Dict[str, List[Dict[str, Any]]] = {}
+        
+        # When cross_lingual is enabled, search across all indexed language partitions
+        search_lang = None if request.cross_lingual else target_lang
         
         # Execute search over passage-native and semantic-longdoc indexes
         for strat_name, strat_idx in self.index_manager.indexes.items():
             results = strat_idx.search(
                 query_vec=query_vector,
-                target_lang=target_lang,
+                target_lang=search_lang,
                 top_k=config.FAISS_TOP_K,
             )
             strategy_results[strat_name] = results
@@ -268,7 +271,7 @@ class RAGPipelineOrchestrator:
             stage="vector_retrieval_and_merge",
             ms=round((time.perf_counter() - retrieval_start_t) * 1000, 2),
             success=True,
-            details=f"Retrieved {len(merged_candidates)} candidate chunks across strategies",
+            details=f"Retrieved {len(merged_candidates)} candidate chunks (cross-lingual={request.cross_lingual})",
         ))
         
         # -------------------------------------------------------------
@@ -296,18 +299,41 @@ class RAGPipelineOrchestrator:
         )
         
         # -------------------------------------------------------------
-        # STAGE 7: Extractive-First Generation (with LLM Synthesis Fallback)
+        # STAGE 7: Grounded Generation (Extractive / Cross-Lingual Synthesis)
         # -------------------------------------------------------------
         gen_start_t = time.perf_counter()
-        extractive_res = generate_extractive(raw_query_text, reranked_chunks)
-        candidate_answer = extractive_res["answer"]
-        answer_source = extractive_res["answer_source"]
+        
+        # Check if retrieved evidence contains cross-lingual sources relative to target_lang
+        top_languages = [c.get("source_lang", "").lower() for c in reranked_chunks[:3]]
+        has_cross_lingual_evidence = any(l != target_lang.lower() for l in top_languages if l)
+        
+        if has_cross_lingual_evidence and config.LLM_API_KEY:
+            # Multi-source cross-lingual compilation & translation
+            context_blocks = []
+            for i, c in enumerate(reranked_chunks[:5]):
+                lang_code = c.get("source_lang", "UNK").upper()
+                strat = c.get("chunk_strategy", "")
+                context_blocks.append(f"[{lang_code} Source #{i+1} ({strat})]:\n{c.get('text', '')}")
+            compiled_context = "\n\n".join(context_blocks)
+            
+            candidate_answer = self.llm_adapter.generate(
+                prompt=raw_query_text,
+                context=compiled_context,
+                target_lang=target_lang,
+            )
+            answer_source = "cross_lingual_synthesis"
+            gen_details = f"Cross-lingual multi-source synthesis into '{target_lang}' ({len(set(top_languages))} languages combined)"
+        else:
+            extractive_res = generate_extractive(raw_query_text, reranked_chunks)
+            candidate_answer = extractive_res["answer"]
+            answer_source = extractive_res["answer_source"]
+            gen_details = "Extractive-first grounded passage extraction (zero LLM overhead)"
         
         timings.append(StageTiming(
             stage="extractive_generation",
             ms=round((time.perf_counter() - gen_start_t) * 1000, 2),
             success=True,
-            details="Extractive-first grounded passage extraction (zero LLM overhead)",
+            details=gen_details,
         ))
         
         # -------------------------------------------------------------

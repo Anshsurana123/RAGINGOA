@@ -99,14 +99,15 @@ async def query_pipeline(
     file: Optional[UploadFile] = File(None),
     text: Optional[str] = Form(None),
     language_hint: Optional[str] = Form(None),
+    cross_lingual: Optional[bool] = Form(True),
     request_body: Optional[QueryRequest] = None,
 ) -> QueryResponse:
     """
     Execute end-to-end Voice RAG query.
     Accepts:
-    1. Multipart file upload ('file') with optional 'language_hint'
-    2. Multipart form text ('text') with optional 'language_hint'
-    3. JSON body with text / audio_path / language_hint
+    1. Multipart file upload ('file') with optional 'language_hint' and 'cross_lingual'
+    2. Multipart form text ('text') with optional 'language_hint' and 'cross_lingual'
+    3. JSON body with text / audio_path / language_hint / cross_lingual
     """
     orchestrator = get_orchestrator()
     temp_audio_path = None
@@ -126,6 +127,7 @@ async def query_pipeline(
             req = QueryRequest(
                 audio_path=temp_audio_path,
                 language_hint=language_hint,
+                cross_lingual=True if cross_lingual is None else cross_lingual,
             )
             response = await orchestrator.execute(req)
             return response
@@ -135,6 +137,7 @@ async def query_pipeline(
             req = QueryRequest(
                 text=text.strip(),
                 language_hint=language_hint,
+                cross_lingual=True if cross_lingual is None else cross_lingual,
             )
             return await orchestrator.execute(req)
             

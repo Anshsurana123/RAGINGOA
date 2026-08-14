@@ -140,11 +140,19 @@
           <span id="detectedLangPill" class="hidden px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800">ROUTED: EN</span>
         </div>
 
+        <!-- Cross-Lingual Federation Toggle -->
+        <div class="flex items-center gap-2 bg-surface-input/80 px-3 py-1.5 rounded-lg border border-surface-border text-xs font-mono">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="crossLingualToggle" checked class="rounded bg-surface-card border-surface-border text-primary-emerald focus:ring-0 cursor-pointer"/>
+            <span class="text-text-main font-medium">Cross-Lingual Federation</span>
+          </label>
+          <span class="text-text-muted">| All Corpora (HI + TA + EN)</span>
+        </div>
+
         <!-- Latency Target SLA Pill -->
         <div class="hidden sm:flex items-center gap-2 bg-surface-input/80 px-3 py-1.5 rounded-lg border border-surface-border text-xs font-mono">
           <span class="text-text-muted">Target SLA:</span>
           <span class="text-emerald-400 font-bold">&lt; 200 ms</span>
-          <span class="text-text-muted">| In-Memory HNSW</span>
         </div>
       </div>
 
@@ -376,6 +384,8 @@
       const formData = new FormData();
       formData.append("text", text);
       formData.append("language_hint", currentLanguage);
+      const isCrossLingual = document.getElementById("crossLingualToggle")?.checked ?? true;
+      formData.append("cross_lingual", isCrossLingual ? "true" : "false");
 
       try {
         const response = await fetch("/query", { method: "POST", body: formData });
@@ -443,6 +453,8 @@
       const formData = new FormData();
       formData.append("file", blob, "voice_input.wav");
       formData.append("language_hint", currentLanguage);
+      const isCrossLingual = document.getElementById("crossLingualToggle")?.checked ?? true;
+      formData.append("cross_lingual", isCrossLingual ? "true" : "false");
 
       try {
         const response = await fetch("/query", { method: "POST", body: formData });
@@ -466,17 +478,24 @@
 
       // 1. Answer & Source Badge
       const src = (data.answer_source || "declined").toLowerCase();
-      answerSourceBadge.textContent = src.toUpperCase();
       
-      if (src === "extractive") {
+      if (src === "cross_lingual_synthesis") {
+        answerSourceBadge.textContent = "CROSS-LINGUAL FEDERATION";
+        answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/30";
+        answerContent.className = "text-sm md:text-base text-text-main leading-relaxed min-h-[80px]";
+        answerContent.textContent = data.answer || "No grounded answer available.";
+      } else if (src === "extractive") {
+        answerSourceBadge.textContent = "EXTRACTIVE (EXACT)";
         answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
         answerContent.className = "text-sm md:text-base text-text-main leading-relaxed min-h-[80px]";
         answerContent.textContent = data.answer || "No grounded answer available.";
       } else if (src === "generated") {
+        answerSourceBadge.textContent = "GENERATED";
         answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/30";
         answerContent.className = "text-sm md:text-base text-text-main leading-relaxed min-h-[80px]";
         answerContent.textContent = data.answer || "No grounded answer available.";
       } else {
+        answerSourceBadge.textContent = "DECLINED";
         answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-red-500/10 text-red-400 border border-red-500/30";
         answerContent.className = "text-sm md:text-base text-red-300 bg-red-950/30 border border-red-800/50 p-4 rounded-xl leading-relaxed min-h-[80px]";
         answerContent.innerHTML = `<div class="flex items-center gap-2 font-mono font-bold text-red-400 mb-1"><span class="material-symbols-outlined text-base">block</span>GUARDRAIL INTERVENTION: REQUEST DECLINED</div><div>${data.answer || "Request declined by safety or grounding guardrail."}</div>`;
@@ -566,11 +585,18 @@
         chunks.forEach((c, idx) => {
           const item = document.createElement("div");
           item.className = "p-4 rounded-xl bg-surface-input border border-surface-border hover:border-emerald-500/40 transition flex flex-col gap-2";
+          
+          let langBadgeClass = "bg-slate-800 text-slate-300 border-slate-700";
+          const lang = (c.source_lang || "").toLowerCase();
+          if (lang === "en") langBadgeClass = "bg-sky-950 text-sky-400 border-sky-800";
+          else if (lang === "hi") langBadgeClass = "bg-amber-950 text-amber-400 border-amber-800";
+          else if (lang === "ta") langBadgeClass = "bg-emerald-950 text-emerald-400 border-emerald-800";
+
           item.innerHTML = `
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-slate-800 text-slate-300 border border-slate-700">#${idx+1} [${c.source_lang}]</span>
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800">${c.chunk_strategy}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${langBadgeClass}">#${idx+1} [${c.source_lang.toUpperCase()}]</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-900 text-slate-300 border border-slate-700">${c.chunk_strategy}</span>
               </div>
               <div class="flex items-center gap-2 font-mono text-xs text-primary-emerald font-bold">
                 <span>Score: ${c.final_score.toFixed(3)}</span>

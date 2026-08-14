@@ -48,6 +48,7 @@ class QueryRequest(BaseModel):
     audio_path: Optional[str] = None
     text: Optional[str] = None  # Text bypass for benchmark / testing
     language_hint: Optional[str] = None
+    cross_lingual: bool = True  # Enable multilingual federation across all indexed corpora
 
 
 class QueryResponse(BaseModel):
@@ -56,7 +57,7 @@ class QueryResponse(BaseModel):
     transcript: str
     language_detected: str
     answer: str
-    answer_source: Literal["extractive", "generated", "declined"]
+    answer_source: Literal["extractive", "generated", "declined", "cross_lingual_synthesis"]
     retrieved_chunks: List[RetrievedChunk] = Field(default_factory=list)
     guardrail_flags: Dict[str, Any] = Field(default_factory=dict)
     stage_timings: List[StageTiming] = Field(default_factory=list)
