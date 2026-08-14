@@ -478,6 +478,7 @@
 
       // 1. Answer & Source Badge
       const src = (data.answer_source || "declined").toLowerCase();
+      const flags = data.guardrail_flags || {};
       
       if (src === "cross_lingual_synthesis") {
         answerSourceBadge.textContent = "CROSS-LINGUAL FEDERATION";
@@ -494,11 +495,18 @@
         answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/30";
         answerContent.className = "text-sm md:text-base text-text-main leading-relaxed min-h-[80px]";
         answerContent.textContent = data.answer || "No grounded answer available.";
-      } else {
-        answerSourceBadge.textContent = "DECLINED";
+      } else if (flags.unsafe_detected) {
+        // Explicit Safety Violation (Weapons, prompt injection, malware, self-harm)
+        answerSourceBadge.textContent = "SAFETY BLOCKED";
         answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-red-500/10 text-red-400 border border-red-500/30";
         answerContent.className = "text-sm md:text-base text-red-300 bg-red-950/30 border border-red-800/50 p-4 rounded-xl leading-relaxed min-h-[80px]";
-        answerContent.innerHTML = `<div class="flex items-center gap-2 font-mono font-bold text-red-400 mb-1"><span class="material-symbols-outlined text-base">block</span>GUARDRAIL INTERVENTION: REQUEST DECLINED</div><div>${data.answer || "Request declined by safety or grounding guardrail."}</div>`;
+        answerContent.innerHTML = `<div class="flex items-center gap-2 font-mono font-bold text-red-400 mb-1"><span class="material-symbols-outlined text-base">block</span>SAFETY INTERVENTION: PROMPT BLOCKED</div><div>${data.answer || "Request blocked by pre-retrieval safety guardrail."}</div>`;
+      } else {
+        // Insufficient Grounded Context in Corpus (Honest RAG rejection to prevent hallucination)
+        answerSourceBadge.textContent = "INSUFFICIENT CONTEXT";
+        answerSourceBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30";
+        answerContent.className = "text-sm md:text-base text-amber-200/90 bg-amber-950/20 border border-amber-800/40 p-4 rounded-xl leading-relaxed min-h-[80px]";
+        answerContent.innerHTML = `<div class="flex items-center gap-2 font-mono font-bold text-amber-400 mb-1"><span class="material-symbols-outlined text-base">info</span>GROUNDING NOTICE: INSUFFICIENT CORPUS EVIDENCE</div><p class="text-slate-300">${data.answer || "The indexed corpus does not contain enough grounded facts to answer this question."}</p>`;
       }
 
       // 2. Transcribed query
