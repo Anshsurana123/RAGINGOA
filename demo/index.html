@@ -55,10 +55,44 @@
   </script>
 
   <style>
-    body {
-      background-color: #FEF8EA;
-      color: #111827;
+    :root {
+      color-scheme: light !important;
+    }
+
+    html, body {
+      color-scheme: light !important;
+      background-color: #FEF8EA !important;
+      color: #111827 !important;
       font-family: 'Plus Jakarta Sans', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Force high contrast text on sand backgrounds */
+    .bg-sand-50, .bg-sand-100, .bg-sand-200, .bg-sand-300, .bg-sand-400 {
+      color: #111827 !important;
+    }
+    
+    .text-black {
+      color: #000000 !important;
+    }
+
+    .text-slate-800, .text-slate-700, .text-slate-600 {
+      color: #1F2937 !important;
+    }
+
+    /* Dark containers in Knowledge Sea */
+    .sea-grid, .bg-jungle-950, .bg-jungle-900, .bg-jungle-800 {
+      color: #FEF8EA !important;
+    }
+
+    .sea-grid .bg-sand-100 {
+      background-color: #FEF8EA !important;
+      color: #111827 !important;
+    }
+
+    .sea-grid .bg-sand-100 p, .sea-grid .bg-sand-100 span, .sea-grid .bg-sand-100 div {
+      color: #111827 !important;
     }
 
     /* Retro Underline Highlight */

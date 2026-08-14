@@ -72,16 +72,17 @@ def _dummy_zerogpu():
     return True
 
 
-# Build Gradio Blocks UI embedding the exact Command Center frontend
+# Build Gradio Blocks UI embedding the exact Command Center frontend with total CSS isolation
 CUSTOM_CSS = """
 body, html, .gradio-container, gradio-app {
     margin: 0 !important;
     padding: 0 !important;
     max-width: 100% !important;
     width: 100% !important;
+    height: 100% !important;
     background-color: #FEF8EA !important;
-    border: none !important;
-    box-shadow: none !important;
+    color-scheme: light !important;
+    overflow: auto !important;
 }
 footer, .svelte-10ymbgw, .built-with {
     display: none !important;
@@ -90,10 +91,17 @@ footer, .svelte-10ymbgw, .built-with {
     max-width: 100% !important;
     padding: 0 !important;
 }
+iframe#commandCenterFrame {
+    width: 100% !important;
+    min-height: 100vh !important;
+    height: 100vh !important;
+    border: none !important;
+    display: block !important;
+}
 """
 
 with gr.Blocks(title="🌴 Hacker House Goa 2026 — Voice Indic RAG", css=CUSTOM_CSS) as demo:
-    gr.HTML(get_custom_html())
+    gr.HTML('<iframe id="commandCenterFrame" src="/demo_ui" style="width:100vw; height:100vh; border:none; position:fixed; top:0; left:0; z-index:99999; background:#FEF8EA;"></iframe>')
     # Hidden dummy button to ensure ZeroGPU handler registration
     dummy_btn = gr.Button("zero_gpu_anchor", visible=False)
     dummy_btn.click(fn=_dummy_zerogpu)
@@ -116,6 +124,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/demo_ui", response_class=HTMLResponse)
+@app.get("/ui", response_class=HTMLResponse)
+async def serve_isolated_demo_ui():
+    """Serves the isolated clean Command Center frontend."""
+    return HTMLResponse(content=get_custom_html(), status_code=200)
 
 
 @app.get("/health", response_class=JSONResponse)
