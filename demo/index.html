@@ -8,7 +8,7 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Playfair+Display:ital,wght@0,600;0,800;1,600&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Playfair+Display:ital,wght@0,600;0,800;1,600&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
   
   <!-- Tailwind CSS CDN -->
@@ -19,22 +19,22 @@
         extend: {
           colors: {
             sand: {
-              50: '#FFFCF5',
+              50: '#FFFDF9',
               100: '#FEF8EA',
               200: '#FDF0D5',
               300: '#F5E5C0',
+              400: '#EBD2A0',
             },
             jungle: {
-              950: '#06130E',
-              900: '#0A1C16',
-              800: '#0F2E22',
-              700: '#164031',
-              600: '#1D5340',
+              950: '#071813',
+              900: '#0D261E',
+              800: '#13382C',
+              700: '#1C4F3F',
             },
             hhgold: '#F4B942',
             hhpink: '#FF2E93',
             hhemerald: '#00E599',
-            hhdarkgreen: '#004D34',
+            hhdarkgreen: '#0F382A',
           },
           fontFamily: {
             display: ['"Cinzel"', 'serif'],
@@ -43,11 +43,11 @@
             sans: ['"Plus Jakarta Sans"', 'sans-serif'],
           },
           boxShadow: {
-            'brutal': '4px 4px 0px #000000',
-            'brutal-lg': '6px 6px 0px #000000',
+            'brutal': '3px 3px 0px #000000',
+            'brutal-lg': '5px 5px 0px #000000',
             'brutal-sm': '2px 2px 0px #000000',
-            'brutal-pink': '4px 4px 0px #FF2E93',
-            'brutal-green': '4px 4px 0px #004D34',
+            'brutal-pink': '3px 3px 0px #FF2E93',
+            'brutal-gold': '3px 3px 0px #F4B942',
           }
         }
       }
@@ -57,7 +57,7 @@
   <style>
     body {
       background-color: #FEF8EA;
-      color: #1A1A1A;
+      color: #111827;
       font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
@@ -77,19 +77,19 @@
       z-index: -1;
     }
 
-    /* Knowledge Sea Grid Background */
+    /* Knowledge Sea Subtle Grid */
     .sea-grid {
-      background-color: #0A1C16;
+      background-color: #0D261E;
       background-image: 
-        linear-gradient(rgba(0, 229, 153, 0.08) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 229, 153, 0.08) 1px, transparent 1px);
-      background-size: 24px 24px;
+        linear-gradient(rgba(0, 229, 153, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 229, 153, 0.07) 1px, transparent 1px);
+      background-size: 20px 20px;
     }
 
-    /* Retro Palm Seal Watermark */
+    /* Retro Stamp Watermark */
     .stamp-watermark {
-      background-image: radial-gradient(circle, rgba(244, 185, 66, 0.15) 1px, transparent 1px);
-      background-size: 8px 8px;
+      background-image: radial-gradient(circle, rgba(244, 185, 66, 0.2) 1px, transparent 1px);
+      background-size: 6px 6px;
     }
 
     /* Custom Scrollbars */
@@ -98,11 +98,11 @@
       height: 6px;
     }
     ::-webkit-scrollbar-track {
-      background: #0A1C16;
+      background: #0D261E;
     }
     ::-webkit-scrollbar-thumb {
-      background: #1D5340;
-      border-radius: 3px;
+      background: #1C4F3F;
+      border-radius: 2px;
     }
     ::-webkit-scrollbar-thumb:hover {
       background: #00E599;
@@ -111,12 +111,14 @@
 </head>
 <body class="min-h-screen flex flex-col selection:bg-hhgold selection:text-black">
 
-  <!-- TOP VINTAGE GOA TROPICAL HEADER STRIP -->
-  <header class="w-full bg-[#FEF8EA] border-b-4 border-black overflow-hidden relative">
-    <div class="h-20 md:h-24 w-full bg-gradient-to-r from-amber-200 via-emerald-100 to-amber-200 relative flex items-center justify-between px-4 md:px-8 border-b-2 border-black">
+  <!-- TOP VINTAGE GOA HEADER STRIP -->
+  <header class="w-full bg-sand-100 border-b-4 border-black">
+    
+    <!-- Top Branding Strip -->
+    <div class="w-full bg-gradient-to-r from-amber-100 via-emerald-50 to-amber-100 border-b-2 border-black px-4 md:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
       
-      <!-- Left: Brand / Title -->
-      <div class="flex items-center gap-3 z-10">
+      <!-- Left: Title & Event Tag -->
+      <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-full bg-black text-hhgold flex items-center justify-center border-2 border-black font-display font-black text-lg shadow-brutal-sm">
           🌴
         </div>
@@ -125,36 +127,25 @@
             <h1 class="font-display font-black text-xl md:text-2xl tracking-wider text-black">HACKER HOUSE GOA 2026</h1>
             <span class="px-2 py-0.5 bg-black text-hhgold text-[10px] font-mono font-bold uppercase rounded border border-black shadow-brutal-sm">TASK 2</span>
           </div>
-          <p class="font-mono text-xs text-slate-700 tracking-tight">VOICE-ENABLED INDIC RAG ARCHITECTURE</p>
+          <p class="font-mono text-xs text-slate-700 tracking-tight">VOICE-ENABLED MULTILINGUAL INDIC RAG</p>
         </div>
       </div>
 
-      <!-- Center & Right: Tech Specs Badge -->
-      <div class="hidden lg:flex items-center gap-3 z-10">
+      <!-- Right: Live SLA & Hardware Badge -->
+      <div class="flex items-center gap-3">
         <div class="px-3 py-1 bg-white border-2 border-black shadow-brutal-sm font-mono text-xs flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           <span class="font-bold">FAISS HNSW 384-d</span>
           <span class="text-slate-400">|</span>
           <span>Sarvam Saaras v3</span>
           <span class="text-slate-400">|</span>
-          <span class="text-amber-700 font-bold">BM25-Hybrid Fusion</span>
+          <span class="text-hhdarkgreen font-bold">BM25-Hybrid Fusion</span>
         </div>
-      </div>
-
-      <!-- Top Tropical Palms Silhouette SVG Strip -->
-      <div class="absolute inset-0 opacity-20 pointer-events-none flex justify-between items-end overflow-hidden">
-        <svg viewBox="0 0 1200 120" class="w-full h-full object-cover">
-          <path d="M0,120 C150,90 350,110 500,80 C650,50 800,100 1000,70 C1100,55 1180,90 1200,120 L1200,120 L0,120 Z" fill="#0F382A"/>
-          <!-- Palm Tree Silhouettes -->
-          <path d="M50,120 Q60,60 80,40 M80,40 Q60,30 30,35 M80,40 Q75,15 95,20 M80,40 Q105,25 120,40 M80,40 Q100,50 110,65" stroke="#0F382A" stroke-width="4" fill="none"/>
-          <path d="M450,120 Q440,50 420,30 M420,30 Q400,20 370,25 M420,30 Q415,5 435,10 M420,30 Q445,15 460,30 M420,30 Q440,40 450,55" stroke="#0F382A" stroke-width="4" fill="none"/>
-          <path d="M950,120 Q960,55 980,35 M980,35 Q960,25 930,30 M980,35 Q975,10 995,15 M980,35 Q1005,20 1020,35" stroke="#0F382A" stroke-width="4" fill="none"/>
-        </svg>
       </div>
     </div>
 
-    <!-- Sub-Navbar Cockpit Controls -->
-    <div class="bg-sand-100 px-4 md:px-8 py-2.5 flex flex-wrap items-center justify-between gap-4 text-xs font-mono border-b-2 border-black">
+    <!-- Controls Toolbar (Language Selector & Federation) -->
+    <div class="px-4 md:px-8 py-2 bg-sand-200/70 border-b-2 border-black flex flex-wrap items-center justify-between gap-4 text-xs font-mono">
       
       <!-- Language Pill Selector -->
       <div class="flex items-center gap-2">
@@ -186,244 +177,225 @@
     </div>
   </header>
 
-  <!-- MAIN DUAL-PANE COCKPIT (THE TERMINAL vs THE KNOWLEDGE SEA) -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+  <!-- MAIN WORKSPACE (THE TERMINAL & THE KNOWLEDGE SEA) -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
     
-    <!-- LEFT COLUMN: THE TERMINAL (VOICE / PROMPT INPUT & TRANSCRIPT) -->
-    <div class="lg:col-span-5 flex flex-col gap-6">
+    <!-- DUAL PANE WORKBENCH -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       
-      <!-- Section Title -->
-      <div class="flex items-center justify-between">
-        <h2 class="font-display font-black text-2xl md:text-3xl text-black title-highlight">THE TERMINAL</h2>
-        <span class="px-2 py-0.5 bg-black text-white text-[10px] font-mono font-bold shadow-brutal-sm">VOICE INTERFACE</span>
-      </div>
-
-      <!-- Retro Vinyl / Radar Mic Container -->
-      <div class="relative bg-white border-4 border-black shadow-brutal-lg p-6 flex flex-col items-center justify-center gap-4 overflow-hidden min-h-[300px]">
+      <!-- LEFT: THE TERMINAL -->
+      <div class="lg:col-span-5 flex flex-col gap-4">
         
-        <!-- Tropical Palms Circular Vinyl Texture -->
-        <div class="relative w-48 h-48 rounded-full border-4 border-black bg-gradient-to-tr from-emerald-900 via-teal-800 to-amber-700 flex items-center justify-center shadow-brutal overflow-hidden group">
-          
-          <!-- Concentric vinyl groove rings -->
-          <div class="absolute inset-2 rounded-full border border-pink-400/40 pointer-events-none"></div>
-          <div class="absolute inset-6 rounded-full border border-pink-400/30 pointer-events-none"></div>
-          <div class="absolute inset-10 rounded-full border border-pink-400/20 pointer-events-none"></div>
-          
-          <!-- Subtle palm background SVG -->
-          <svg viewBox="0 0 200 200" class="absolute inset-0 w-full h-full opacity-30 pointer-events-none">
-            <path d="M20,180 Q80,100 100,50 Q120,100 180,180" stroke="#FFF" stroke-width="2" fill="none"/>
-            <circle cx="100" cy="50" r="20" fill="#F4B942" opacity="0.4"/>
-          </svg>
-
-          <!-- Real-Time Web Audio Waveform Canvas overlay -->
-          <canvas id="waveformCanvas" class="absolute inset-0 w-full h-full opacity-40 pointer-events-none"></canvas>
-
-          <!-- Center Yellow Record Button -->
-          <button id="recordBtn" class="relative z-10 w-16 h-16 rounded-full bg-hhgold hover:bg-amber-300 active:scale-95 border-2 border-black flex items-center justify-center shadow-brutal transition-transform cursor-pointer">
-            <span id="micIcon" class="material-symbols-outlined text-3xl font-black text-black">mic</span>
-          </button>
+        <div class="flex items-center justify-between">
+          <h2 class="font-display font-black text-xl md:text-2xl text-black title-highlight">THE TERMINAL</h2>
+          <span class="px-2 py-0.5 bg-black text-white text-[10px] font-mono font-bold shadow-brutal-sm">VOICE INTERFACE</span>
         </div>
 
-        <!-- STT Status Bar (Pink Neon Accent) -->
-        <div id="sttStatusBadge" class="bg-black text-hhgold border-2 border-black border-l-4 border-l-hhpink px-4 py-2 text-xs font-mono font-bold tracking-wider shadow-brutal-sm flex items-center gap-2">
-          <span class="text-hhpink">&gt;&gt;&gt;</span>
-          <span id="sttStatusText">READY FOR VOICE INPUT</span>
-        </div>
+        <!-- Terminal Container -->
+        <div class="bg-white border-3 border-black shadow-brutal-lg p-5 flex flex-col items-center justify-center gap-4">
+          
+          <!-- Concentric Vinyl Mic Radar -->
+          <div class="relative w-40 h-40 rounded-full border-4 border-black bg-gradient-to-tr from-emerald-950 via-teal-900 to-amber-800 flex items-center justify-center shadow-brutal overflow-hidden">
+            <div class="absolute inset-2 rounded-full border border-pink-400/30 pointer-events-none"></div>
+            <div class="absolute inset-5 rounded-full border border-pink-400/20 pointer-events-none"></div>
+            <div class="absolute inset-8 rounded-full border border-pink-400/10 pointer-events-none"></div>
 
-        <!-- Query Input Bar -->
-        <div class="w-full mt-2 flex flex-col gap-2">
-          <div class="flex gap-2">
-            <input type="text" id="queryInput" placeholder="Ask in Hindi, Tamil, or English (e.g. What is Hacker House Goa?)"
-              class="w-full bg-sand-50 border-2 border-black px-4 py-3 font-sans text-sm text-black placeholder:text-slate-400 focus:outline-none focus:bg-white shadow-brutal-sm"/>
-            <button id="searchBtn" class="px-5 py-3 bg-black hover:bg-slate-800 active:scale-95 text-hhgold font-mono font-bold text-xs border-2 border-black shadow-brutal-sm flex items-center gap-1 transition">
+            <!-- Waveform Canvas -->
+            <canvas id="waveformCanvas" class="absolute inset-0 w-full h-full opacity-40 pointer-events-none"></canvas>
+
+            <!-- Record Button -->
+            <button id="recordBtn" class="relative z-10 w-14 h-14 rounded-full bg-hhgold hover:bg-amber-300 active:scale-95 border-2 border-black flex items-center justify-center shadow-brutal transition cursor-pointer">
+              <span id="micIcon" class="material-symbols-outlined text-2xl font-black text-black">mic</span>
+            </button>
+          </div>
+
+          <!-- STT Status Bar (Pink Neon Accent) -->
+          <div id="sttStatusBadge" class="bg-black text-hhgold border-2 border-black border-l-4 border-l-hhpink px-3 py-1.5 text-xs font-mono font-bold tracking-wider shadow-brutal-sm flex items-center gap-2">
+            <span class="text-hhpink font-bold">&gt;&gt;&gt;</span>
+            <span id="sttStatusText">READY FOR VOICE INPUT</span>
+          </div>
+
+          <!-- Query Input Bar -->
+          <div class="w-full flex gap-2">
+            <input type="text" id="queryInput" placeholder="Ask in Hindi, Tamil, or English..."
+              class="w-full bg-sand-50 border-2 border-black px-3.5 py-2.5 font-sans text-sm text-black placeholder:text-slate-400 focus:outline-none focus:bg-white shadow-brutal-sm"/>
+            <button id="searchBtn" class="px-4 py-2.5 bg-black hover:bg-slate-800 active:scale-95 text-hhgold font-mono font-bold text-xs border-2 border-black shadow-brutal-sm flex items-center gap-1 transition">
               <span>RUN</span>
               <span class="material-symbols-outlined text-sm font-bold">arrow_forward</span>
             </button>
           </div>
         </div>
+
+        <!-- AUDIO FIELD NOTE (TRANSCRIPTION NOTE) -->
+        <div id="fieldNoteCard" class="hidden bg-white border-3 border-black shadow-brutal p-4 relative overflow-hidden">
+          <div class="absolute right-3 top-3 w-12 h-12 rounded-full border-2 border-dashed border-amber-500/50 flex flex-col items-center justify-center text-[6px] font-mono text-amber-700 pointer-events-none rotate-12 stamp-watermark">
+            <span class="text-xs">🌴</span>
+            <span>HH GOA</span>
+          </div>
+          <div class="text-[11px] font-mono font-bold text-hhpink tracking-widest uppercase mb-1 flex items-center gap-1">
+            <span>AUDIO FIELD NOTE</span>
+            <span>///</span>
+          </div>
+          <p id="fieldNoteText" class="font-serif text-base md:text-lg text-black font-semibold italic leading-snug"></p>
+        </div>
+
       </div>
 
-      <!-- AUDIO FIELD NOTE (TRANSCRIPTION CARD) -->
-      <div id="fieldNoteCard" class="hidden bg-white border-4 border-black shadow-brutal p-5 relative overflow-hidden">
+      <!-- RIGHT: THE KNOWLEDGE SEA -->
+      <div class="lg:col-span-7 flex flex-col gap-4">
         
-        <!-- Hacker House Goa Palm Seal Stamp (Watermark) -->
-        <div class="absolute right-3 top-3 w-14 h-14 rounded-full border-2 border-dashed border-amber-500/50 flex flex-col items-center justify-center text-[7px] font-mono text-amber-700 pointer-events-none rotate-12 stamp-watermark">
-          <span class="text-xs">🌴</span>
-          <span>HH GOA</span>
-          <span>2026</span>
+        <div class="flex items-center justify-between">
+          <h2 class="font-display font-black text-xl md:text-2xl text-black title-highlight">THE KNOWLEDGE SEA</h2>
+          <span id="topKBadge" class="px-2 py-0.5 bg-black text-hhemerald text-[10px] font-mono font-bold shadow-brutal-sm">AWAITING QUERY</span>
         </div>
 
-        <div class="text-xs font-mono font-bold text-hhpink tracking-widest uppercase mb-1 flex items-center gap-1">
-          <span>AUDIO FIELD NOTE</span>
-          <span>///</span>
+        <!-- Passage Stream Deck -->
+        <div class="sea-grid border-3 border-black shadow-brutal-lg p-4 min-h-[310px] max-h-[380px] overflow-y-auto">
+          <div id="passagesList" class="flex flex-col gap-3">
+            
+            <!-- Clean Standby State -->
+            <div class="p-8 text-center flex flex-col items-center justify-center gap-2">
+              <div class="w-10 h-10 rounded-full border border-dashed border-emerald-500/40 flex items-center justify-center text-emerald-400 font-mono text-lg">
+                🌊
+              </div>
+              <div class="font-mono text-xs text-emerald-400 font-bold tracking-wider">AWAITING QUERY INPUT</div>
+              <p class="font-serif text-xs text-slate-400 max-w-sm leading-relaxed">
+                Speak into The Terminal mic or enter a prompt to retrieve and fuse grounded multi-lingual passages.
+              </p>
+            </div>
+
+          </div>
         </div>
-        <p id="fieldNoteText" class="font-serif text-lg md:text-xl text-black font-semibold italic leading-relaxed">
-        </p>
+
       </div>
-
     </div>
 
-    <!-- RIGHT COLUMN: THE KNOWLEDGE SEA (RETRIEVED MULTI-SOURCE PASSAGES) -->
-    <div class="lg:col-span-7 flex flex-col gap-6">
-      
-      <!-- Section Title -->
-      <div class="flex items-center justify-between">
-        <h2 class="font-display font-black text-2xl md:text-3xl text-black title-highlight">THE KNOWLEDGE SEA</h2>
-        <span id="topKBadge" class="px-2 py-0.5 bg-black text-hhemerald text-[10px] font-mono font-bold shadow-brutal-sm">AWAITING QUERY</span>
-      </div>
+    <!-- GROUNDED ANSWER HERO CARD -->
+    <section class="w-full">
+      <div class="bg-white border-3 border-black shadow-brutal-lg p-5 md:p-6 relative">
+        
+        <!-- Header -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b-2 border-black">
+          <div class="flex items-center gap-2 font-mono font-bold text-xs">
+            <span id="answerStatusIcon" class="material-symbols-outlined text-slate-500 text-base font-bold">hourglass_empty</span>
+            <span id="answerStatusTag" class="text-slate-600 tracking-wider uppercase">READY FOR INQUIRY</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="answerSourceBadge" class="px-2 py-0.5 bg-black text-hhgold font-mono text-[10px] font-bold uppercase border border-black shadow-brutal-sm">STANDBY</span>
+            <span id="retrievalTimePill" class="px-2 py-0.5 bg-sand-200 border border-black font-mono text-[10px] font-bold text-black">LATENCY: --</span>
+          </div>
+        </div>
 
-      <!-- The Knowledge Sea Passage Stream Deck -->
-      <div class="sea-grid border-4 border-black shadow-brutal-lg p-5 rounded-none flex flex-col gap-4 min-h-[420px] max-h-[480px] overflow-y-auto">
-        <div id="passagesList" class="flex flex-col gap-4 items-center justify-center min-h-[360px]">
+        <!-- Text -->
+        <div id="answerContent" class="font-serif text-base md:text-lg text-slate-500 italic leading-relaxed min-h-[50px] flex items-center">
+          Awaiting query... Speak into The Terminal mic or type a prompt above to generate grounded answers.
+        </div>
+      </div>
+    </section>
+
+    <!-- UNIFIED COHESIVE SYS TELEMETRY & GUARDRAIL CONSOLE -->
+    <section class="w-full bg-sand-200/80 border-3 border-black shadow-brutal-lg p-5 md:p-6">
+      <div class="flex flex-col gap-5">
+        
+        <!-- Section Header -->
+        <div class="flex items-center justify-between border-b-2 border-black pb-2">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 bg-black text-hhgold font-mono font-black text-xs uppercase shadow-brutal-sm">SYS</span>
+            <h3 class="font-mono font-bold text-sm md:text-base text-black tracking-wider">TELEMETRY & GUARDRAIL AUDIT</h3>
+          </div>
+          <span class="text-[10px] font-mono text-slate-600 font-bold">MULTI-STAGE INSTRUMENTATION</span>
+        </div>
+
+        <!-- Metrics & Guardrails Dual Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
           
-          <!-- Clean Ready Empty State -->
-          <div class="p-8 text-center flex flex-col items-center justify-center gap-3">
-            <div class="w-12 h-12 rounded-full border-2 border-dashed border-emerald-500/40 flex items-center justify-center text-emerald-400 font-mono text-xl">
-              🌊
+          <!-- Left: Telemetry Breakdown Box (Dark Forest Console Box) -->
+          <div class="lg:col-span-6 bg-jungle-900 border-2 border-black p-4 text-white shadow-brutal-sm flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between border-b border-emerald-800/60 pb-2 font-mono text-xs">
+              <span class="text-hhpink flex items-center gap-1 font-bold">
+                <span class="w-2 h-2 rounded-full bg-hhpink animate-ping"></span>
+                <span>● TELEMETRY CONSOLE</span>
+              </span>
+              <span id="totalLatencyDisplay" class="text-hhemerald font-bold font-mono">TOTAL: --</span>
             </div>
-            <div class="font-mono text-sm text-emerald-400 font-bold tracking-wider">AWAITING QUERY INPUT</div>
-            <p class="font-serif text-xs text-slate-400 max-w-sm leading-relaxed">
-              Speak into The Terminal or enter a query above to retrieve and fuse grounded multi-lingual passages from the indexed knowledge sea.
+
+            <!-- 4 Stage Latencies -->
+            <div class="grid grid-cols-4 gap-2 text-center font-mono py-1">
+              <div>
+                <div class="text-[9px] text-slate-400 uppercase">STT</div>
+                <div id="sttLatencyVal" class="text-xs font-bold text-white mt-0.5">--</div>
+              </div>
+              <div>
+                <div class="text-[9px] text-slate-400 uppercase">RETRIEVAL</div>
+                <div id="retrievalLatencyVal" class="text-xs font-bold text-hhemerald mt-0.5">--</div>
+              </div>
+              <div>
+                <div class="text-[9px] text-slate-400 uppercase">GUARDRAIL</div>
+                <div id="guardrailLatencyVal" class="text-xs font-bold text-white mt-0.5">--</div>
+              </div>
+              <div>
+                <div class="text-[9px] text-slate-400 uppercase">GENERATION</div>
+                <div id="genLatencyVal" class="text-xs font-bold text-white mt-0.5">--</div>
+              </div>
+            </div>
+
+            <!-- Benchmark Quantiles in Neon Pink -->
+            <div class="grid grid-cols-3 gap-2 text-center font-mono pt-2 border-t border-emerald-900/60">
+              <div>
+                <div class="text-[9px] text-slate-400">P50 (TARGET &lt;200ms)</div>
+                <div class="text-xs font-bold text-hhpink mt-0.5">45.68ms</div>
+              </div>
+              <div>
+                <div class="text-[9px] text-slate-400">P70</div>
+                <div class="text-xs font-bold text-hhpink mt-0.5">48.39ms</div>
+              </div>
+              <div>
+                <div class="text-[9px] text-slate-400">P100</div>
+                <div class="text-xs font-bold text-hhpink mt-0.5">118.45ms</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Guardrail Verification Matrix (Parchment Box) -->
+          <div class="lg:col-span-6 bg-white border-2 border-black p-4 shadow-brutal-sm flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+              <h4 class="font-mono text-xs font-bold text-black tracking-wider uppercase">GUARDRAIL AUDIT MATRIX</h4>
+              <span class="text-[10px] font-mono bg-sand-200 px-1.5 py-0.5 border border-black font-bold text-black">4-TIER ACTIVE</span>
+            </div>
+
+            <!-- 2x2 Matrix -->
+            <div class="grid grid-cols-2 gap-2 font-mono text-xs">
+              <div class="p-2 bg-sand-50 border border-slate-300 flex items-center justify-between">
+                <span class="text-slate-600 font-bold">GROUNDING</span>
+                <span id="badgeGrounding" class="font-bold text-hhdarkgreen">STANDBY</span>
+              </div>
+              <div class="p-2 bg-sand-50 border border-slate-300 flex items-center justify-between">
+                <span class="text-slate-600 font-bold">TOPIC</span>
+                <span id="badgeTopic" class="font-bold text-hhdarkgreen">STANDBY</span>
+              </div>
+              <div class="p-2 bg-sand-50 border border-slate-300 flex items-center justify-between">
+                <span class="text-slate-600 font-bold">HALLUCINATION</span>
+                <span id="badgeHallucination" class="font-bold text-hhdarkgreen">STANDBY</span>
+              </div>
+              <div class="p-2 bg-sand-50 border border-slate-300 flex items-center justify-between">
+                <span class="text-slate-600 font-bold">SAFETY</span>
+                <span id="badgeSafety" class="font-bold text-hhdarkgreen">SECURE ✓</span>
+              </div>
+            </div>
+
+            <!-- Policy Footnote -->
+            <p class="text-[10px] font-mono text-slate-600 leading-tight border-l-2 border-hhdarkgreen pl-2 mt-1">
+              The RAG pipeline knows when NOT to answer. Insufficient context triggers a graceful grounding notice rather than hallucination.
             </p>
           </div>
 
         </div>
       </div>
-
-    </div>
+    </section>
 
   </main>
 
-  <!-- GROUNDED ANSWER HERO CARD -->
-  <section class="max-w-7xl w-full mx-auto px-4 md:px-8 mb-8">
-    <div class="bg-white border-4 border-black shadow-brutal-lg p-6 md:p-8 relative">
-      
-      <!-- Top Grounded Header Strip -->
-      <div class="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b-2 border-black">
-        <div class="flex items-center gap-2 font-mono font-bold text-xs">
-          <span id="answerStatusIcon" class="material-symbols-outlined text-slate-500 text-lg font-bold">hourglass_empty</span>
-          <span id="answerStatusTag" class="text-slate-600 tracking-wider uppercase">READY FOR INQUIRY</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <span id="answerSourceBadge" class="px-2 py-0.5 bg-black text-hhgold font-mono text-[10px] font-bold uppercase border border-black shadow-brutal-sm">STANDBY</span>
-          <span id="retrievalTimePill" class="px-2 py-0.5 bg-sand-200 border border-black font-mono text-[10px] font-bold text-black">LATENCY: --</span>
-        </div>
-      </div>
-
-      <!-- Main Answer Paragraph in High-Readability Editorial Serif -->
-      <div id="answerContent" class="font-serif text-base md:text-lg text-slate-500 italic leading-relaxed min-h-[70px] flex items-center">
-        Awaiting query... Speak into The Terminal mic or type a prompt above to generate grounded answers.
-      </div>
-    </div>
-  </section>
-
-  <!-- BOTTOM DARK SECTION: SYS TELEMETRY & PERFORMANCE & GUARDRAIL STATUS -->
-  <footer class="w-full bg-jungle-950 text-white border-t-4 border-black py-8 px-4 md:px-8 mt-auto">
-    <div class="max-w-7xl mx-auto flex flex-col gap-8">
-      
-      <!-- Section Header with Yellow Block SYS Tag -->
-      <div class="flex items-center gap-3">
-        <span class="px-2 py-1 bg-hhgold text-black font-mono font-black text-sm uppercase">SYS</span>
-        <h3 class="font-mono font-bold text-lg md:text-xl text-white tracking-wider">TELEMETRY & PERFORMANCE</h3>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        <!-- Left: TELEMETRY CONSOLE (Neon Bordered Metrics Grid) -->
-        <div class="lg:col-span-6 bg-jungle-900 border-2 border-emerald-500/40 p-5 shadow-brutal-green relative">
-          <div class="flex items-center justify-between mb-4 border-b border-emerald-900/60 pb-2 font-mono text-xs">
-            <span class="text-hhpink flex items-center gap-1 font-bold">
-              <span class="w-2 h-2 rounded-full bg-hhpink animate-ping"></span>
-              <span>● TELEMETRY CONSOLE</span>
-            </span>
-            <span id="totalLatencyDisplay" class="text-hhemerald font-bold font-mono">TOTAL: 314.5ms</span>
-          </div>
-
-          <!-- 4-Stage Sub-Millisecond Latencies -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center font-mono py-2 border-b border-emerald-900/40">
-            <div>
-              <div class="text-[10px] text-slate-400 uppercase">STT_LATENCY</div>
-              <div id="sttLatencyVal" class="text-sm font-bold text-white mt-1">0.0ms</div>
-            </div>
-            <div>
-              <div class="text-[10px] text-slate-400 uppercase">RETRIEVAL</div>
-              <div id="retrievalLatencyVal" class="text-sm font-bold text-hhemerald mt-1">56.5ms</div>
-            </div>
-            <div>
-              <div class="text-[10px] text-slate-400 uppercase">GUARDRAIL</div>
-              <div id="guardrailLatencyVal" class="text-sm font-bold text-white mt-1">256.8ms</div>
-            </div>
-            <div>
-              <div class="text-[10px] text-slate-400 uppercase">GENERATION</div>
-              <div id="genLatencyVal" class="text-sm font-bold text-white mt-1">0.5ms</div>
-            </div>
-          </div>
-
-          <!-- Benchmark SLA Quantiles in Neon Pink -->
-          <div class="grid grid-cols-3 gap-4 text-center font-mono pt-3">
-            <div>
-              <div class="text-[10px] text-slate-400">P50_TOTAL</div>
-              <div class="text-sm font-bold text-hhpink mt-0.5">45.68ms</div>
-            </div>
-            <div>
-              <div class="text-[10px] text-slate-400">P70_TOTAL</div>
-              <div class="text-sm font-bold text-hhpink mt-0.5">48.39ms</div>
-            </div>
-            <div>
-              <div class="text-[10px] text-slate-400">P100_TOTAL</div>
-              <div class="text-sm font-bold text-hhpink mt-0.5">118.45ms</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right: GUARDRAIL STATUS (2x2 Matrix & Footnote) -->
-        <div class="lg:col-span-6 flex flex-col gap-4">
-          <div class="flex items-center justify-between border-b border-slate-700 pb-2">
-            <h4 class="font-display text-base text-white tracking-widest uppercase">GUARDRAIL STATUS</h4>
-            <span class="text-[10px] font-mono text-slate-400">MULTI-TIER ACTIVE</span>
-          </div>
-
-          <!-- 2x2 Matrix Grid -->
-          <div class="grid grid-cols-2 gap-3 font-mono text-xs">
-            
-            <!-- Grounding -->
-            <div class="p-3 bg-jungle-900 border border-emerald-800/60 flex items-center justify-between">
-              <span class="text-slate-300">GROUNDING</span>
-              <span id="badgeGrounding" class="font-bold text-hhemerald flex items-center gap-1">VERIFIED ✓</span>
-            </div>
-
-            <!-- Topic -->
-            <div class="p-3 bg-jungle-900 border border-emerald-800/60 flex items-center justify-between">
-              <span class="text-slate-300">TOPIC</span>
-              <span id="badgeTopic" class="font-bold text-hhemerald flex items-center gap-1">ALIGNED ✓</span>
-            </div>
-
-            <!-- Hallucination -->
-            <div class="p-3 bg-jungle-900 border border-emerald-800/60 flex items-center justify-between">
-              <span class="text-slate-300">HALLUCINATION</span>
-              <span id="badgeHallucination" class="font-bold text-hhemerald flex items-center gap-1">UNDETECTED ✓</span>
-            </div>
-
-            <!-- Safety -->
-            <div class="p-3 bg-jungle-900 border border-emerald-800/60 flex items-center justify-between">
-              <span class="text-slate-300">SAFETY</span>
-              <span id="badgeSafety" class="font-bold text-hhemerald flex items-center gap-1">SECURE ✓</span>
-            </div>
-
-          </div>
-
-          <!-- Editorial Guardrail Philosophy Note -->
-          <p class="text-[11px] font-mono text-slate-400 leading-relaxed border-l-2 border-emerald-600 pl-3">
-            The RAG pipeline knows when NOT to answer. If retrieval context is insufficient, it will fail gracefully with a specific "Low Context" response rather than hallucinate.
-          </p>
-        </div>
-
-      </div>
-
-    </div>
-  </footer>
-
-  <!-- CLIENT JAVASCRIPT FOR INTERACTION, WEB AUDIO RECORDING & API FETCH -->
+  <!-- CLIENT JAVASCRIPT FOR INTERACTION & API INTEGRATION -->
   <script>
     let currentLanguage = "auto";
     let isRecording = false;
@@ -440,6 +412,7 @@
     const sttStatusText = document.getElementById("sttStatusText");
     const queryInput = document.getElementById("queryInput");
     const searchBtn = document.getElementById("searchBtn");
+    const fieldNoteCard = document.getElementById("fieldNoteCard");
     const fieldNoteText = document.getElementById("fieldNoteText");
     const passagesList = document.getElementById("passagesList");
     const topKBadge = document.getElementById("topKBadge");
@@ -489,7 +462,7 @@
 
       searchBtn.disabled = true;
       searchBtn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">progress_activity</span><span>RUN</span>`;
-      sttStatusText.textContent = "PROCESSING RETRIEVAL PIPELINE...";
+      sttStatusText.textContent = "SEARCHING KNOWLEDGE SEA...";
 
       const formData = new FormData();
       formData.append("text", text);
@@ -497,6 +470,7 @@
       const isCrossLingual = crossLingualToggle?.checked ?? true;
       formData.append("cross_lingual", isCrossLingual ? "true" : "false");
 
+      fieldNoteCard.classList.remove("hidden");
       fieldNoteText.textContent = `"${text}"`;
 
       try {
@@ -578,7 +552,8 @@
     }
 
     function renderResults(data) {
-      // 0. Update Field Note (Transcript/Query)
+      // 0. Update Field Note
+      fieldNoteCard.classList.remove("hidden");
       if (data.transcript) {
         fieldNoteText.textContent = `"${data.transcript}"`;
         queryInput.value = data.transcript;
@@ -601,34 +576,34 @@
       if (src === "cross_lingual_synthesis") {
         answerSourceBadge.textContent = "CROSS-LINGUAL FEDERATION";
         answerStatusTag.textContent = "GROUNDED ANSWER GENERATED";
-        answerStatusTag.className = "text-hhdarkgreen tracking-wider uppercase";
+        answerStatusTag.className = "text-hhdarkgreen tracking-wider uppercase font-bold";
         answerStatusIcon.textContent = "verified";
-        answerStatusIcon.className = "material-symbols-outlined text-hhdarkgreen text-lg font-bold";
-        answerContent.className = "font-serif text-lg md:text-xl text-black leading-relaxed min-h-[70px]";
+        answerStatusIcon.className = "material-symbols-outlined text-hhdarkgreen text-base font-bold";
+        answerContent.className = "font-serif text-base md:text-lg text-black leading-relaxed min-h-[50px]";
         answerContent.textContent = data.answer || "No grounded answer available.";
       } else if (src === "extractive" || src === "generated") {
         answerSourceBadge.textContent = src === "extractive" ? "EXTRACTIVE (EXACT)" : "GROUNDED GENERATION";
         answerStatusTag.textContent = "GROUNDED ANSWER GENERATED";
-        answerStatusTag.className = "text-hhdarkgreen tracking-wider uppercase";
+        answerStatusTag.className = "text-hhdarkgreen tracking-wider uppercase font-bold";
         answerStatusIcon.textContent = "verified";
-        answerStatusIcon.className = "material-symbols-outlined text-hhdarkgreen text-lg font-bold";
-        answerContent.className = "font-serif text-lg md:text-xl text-black leading-relaxed min-h-[70px]";
+        answerStatusIcon.className = "material-symbols-outlined text-hhdarkgreen text-base font-bold";
+        answerContent.className = "font-serif text-base md:text-lg text-black leading-relaxed min-h-[50px]";
         answerContent.textContent = data.answer || "No grounded answer available.";
       } else if (flags.unsafe_detected) {
         answerSourceBadge.textContent = "SAFETY BLOCKED";
         answerStatusTag.textContent = "SAFETY INTERVENTION: PROMPT BLOCKED";
         answerStatusTag.className = "text-red-700 tracking-wider uppercase font-black";
         answerStatusIcon.textContent = "block";
-        answerStatusIcon.className = "material-symbols-outlined text-red-600 text-lg font-bold";
-        answerContent.className = "font-serif text-base text-red-900 leading-relaxed min-h-[70px] bg-red-100 p-4 border-2 border-red-500";
+        answerStatusIcon.className = "material-symbols-outlined text-red-600 text-base font-bold";
+        answerContent.className = "font-serif text-sm text-red-900 leading-relaxed min-h-[50px] bg-red-100 p-3 border-2 border-red-500";
         answerContent.textContent = data.answer || "Blocked by safety guardrail.";
       } else {
         answerSourceBadge.textContent = "INSUFFICIENT CONTEXT";
         answerStatusTag.textContent = "GROUNDING NOTICE: INSUFFICIENT EVIDENCE";
         answerStatusTag.className = "text-amber-800 tracking-wider uppercase font-bold";
         answerStatusIcon.textContent = "info";
-        answerStatusIcon.className = "material-symbols-outlined text-amber-700 text-lg font-bold";
-        answerContent.className = "font-serif text-base text-slate-800 leading-relaxed min-h-[70px] bg-amber-50 p-4 border-2 border-amber-400";
+        answerStatusIcon.className = "material-symbols-outlined text-amber-700 text-base font-bold";
+        answerContent.className = "font-serif text-sm text-slate-800 leading-relaxed min-h-[50px] bg-amber-50 p-3 border-2 border-amber-400";
         answerContent.textContent = data.answer || "The indexed corpus does not contain enough grounded facts to answer this question.";
       }
 
@@ -642,7 +617,7 @@
       } else {
         chunks.forEach((c, idx) => {
           const item = document.createElement("div");
-          item.className = "p-4 bg-sand-100 border-2 border-black shadow-brutal relative overflow-hidden flex flex-col gap-2";
+          item.className = "p-3.5 bg-sand-100 border-2 border-black shadow-brutal relative overflow-hidden flex flex-col gap-1.5";
           
           let langPillBg = "bg-slate-800 text-slate-200";
           const lang = (c.source_lang || "").toLowerCase();
@@ -652,14 +627,14 @@
 
           item.innerHTML = `
             <div class="flex items-center justify-between mb-1">
-              <div class="flex items-center gap-2 font-mono text-xs font-bold">
+              <div class="flex items-center gap-1.5 font-mono text-xs font-bold">
                 <span class="material-symbols-outlined text-sm text-hhdarkgreen">database</span>
                 <span>DOC_REF: ${(c.chunk_id || 'DOC_' + (idx+1)).toUpperCase()}</span>
               </div>
               <span class="px-2 py-0.5 bg-hhgold border border-black font-mono text-[10px] font-black uppercase">${(c.final_score * 100).toFixed(0)}% MATCH</span>
             </div>
-            <p class="font-serif text-sm text-black leading-relaxed">"${c.text}"</p>
-            <div class="mt-1 flex items-center justify-between text-[10px] font-mono text-slate-600 border-t border-slate-300 pt-2">
+            <p class="font-serif text-xs md:text-sm text-black leading-relaxed">"${c.text}"</p>
+            <div class="mt-1 flex items-center justify-between text-[10px] font-mono text-slate-600 border-t border-slate-300 pt-1.5">
               <span class="flex items-center gap-1.5">
                 <span class="px-1.5 py-0.5 ${langPillBg} rounded font-bold uppercase">${c.source_lang.toUpperCase()}</span>
                 <span>${c.chunk_strategy.replace(/_/g, ' ').toUpperCase()}</span>
@@ -688,38 +663,38 @@
       // 4. Guardrail Status Badges
       if (flags.grounding_passed) {
         badgeGrounding.textContent = "VERIFIED ✓";
-        badgeGrounding.className = "font-bold text-hhemerald flex items-center gap-1";
+        badgeGrounding.className = "font-bold text-emerald-700";
       } else {
         badgeGrounding.textContent = "UNGROUNDED ✗";
-        badgeGrounding.className = "font-bold text-amber-400 flex items-center gap-1";
+        badgeGrounding.className = "font-bold text-amber-700";
       }
 
       if (!flags.off_topic_detected) {
         badgeTopic.textContent = "ALIGNED ✓";
-        badgeTopic.className = "font-bold text-hhemerald flex items-center gap-1";
+        badgeTopic.className = "font-bold text-emerald-700";
       } else {
         badgeTopic.textContent = "OFF-TOPIC ✗";
-        badgeTopic.className = "font-bold text-red-400 flex items-center gap-1";
+        badgeTopic.className = "font-bold text-red-600";
       }
 
       if (flags.grounding_passed && src !== "declined") {
         badgeHallucination.textContent = "UNDETECTED ✓";
-        badgeHallucination.className = "font-bold text-hhemerald flex items-center gap-1";
+        badgeHallucination.className = "font-bold text-emerald-700";
       } else {
         badgeHallucination.textContent = "FLAGGED ⚠";
-        badgeHallucination.className = "font-bold text-amber-400 flex items-center gap-1";
+        badgeHallucination.className = "font-bold text-amber-700";
       }
 
       if (!flags.unsafe_detected) {
         badgeSafety.textContent = "SECURE ✓";
-        badgeSafety.className = "font-bold text-hhemerald flex items-center gap-1";
+        badgeSafety.className = "font-bold text-emerald-700";
       } else {
         badgeSafety.textContent = "VIOLATION ✗";
-        badgeSafety.className = "font-bold text-red-400 flex items-center gap-1";
+        badgeSafety.className = "font-bold text-red-600";
       }
     }
 
-    // Ambient Waveform Canvas inside Radar Vinyl
+    // Waveform Animation
     const canvas = document.getElementById("waveformCanvas");
     const ctx = canvas.getContext("2d");
 
@@ -737,15 +712,15 @@
 
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
-      const baseR = 75;
+      const baseR = 60;
 
       ctx.beginPath();
       for (let angle = 0; angle < Math.PI * 2; angle += 0.1) {
-        let amp = 4;
+        let amp = 3;
         if (analyser && dataArray && isRecording) {
           analyser.getByteFrequencyData(dataArray);
           const binIdx = Math.floor((angle / (Math.PI * 2)) * dataArray.length);
-          amp = (dataArray[binIdx] / 255) * 20;
+          amp = (dataArray[binIdx] / 255) * 16;
         }
         const r = baseR + Math.sin(angle * 6 + wavePhase) * amp;
         const x = cx + Math.cos(angle) * r;
