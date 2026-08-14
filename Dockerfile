@@ -32,6 +32,7 @@ RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTr
 
 # Copy application source code and pre-built index/processed artifacts
 COPY config.py .
+COPY app.py .
 COPY data/ ./data/
 COPY chunking/ ./chunking/
 COPY retrieval/ ./retrieval/

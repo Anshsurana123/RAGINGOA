@@ -1,3 +1,15 @@
+---
+title: Hacker House Goa 2026 - Voice Indic RAG
+emoji: 🌴
+colorFrom: green
+colorTo: yellow
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: Instrumented, low-latency Voice RAG for Indic Languages
+---
+
 # 🌴 Hacker House Goa 2026: Voice-Enabled Multilingual Indic RAG
 
 An instrumented, low-latency, voice-enabled Retrieval-Augmented Generation (RAG) system built from scratch for Indic languages (**Hindi**, **Tamil**, and **English**), strictly architected for zero-code extension to 13+ Indic languages via a single configuration list.
