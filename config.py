@@ -119,9 +119,9 @@ GROUNDING_OVERLAP_THRESHOLD = 0.30
 # ==========================================
 # 7. LLM FALLBACK GENERATION CONFIG
 # ==========================================
-LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
-LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+LLM_API_KEY = os.getenv("LLM_API_KEY", os.getenv("GROQ_API_KEY", ""))
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1" if os.getenv("GROQ_API_KEY") else "https://api.openai.com/v1")
+LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile" if (os.getenv("GROQ_API_KEY") or "groq.com" in os.getenv("LLM_BASE_URL", "")) else "gpt-4o-mini")
 LLM_TIMEOUT_SECONDS = 15.0
 
 # ==========================================
