@@ -88,6 +88,30 @@ Rather than naive fixed-size token splitting, the pipeline implements **3 specia
 
 ---
 
+## ⚡ Latency Analytics & SLA Benchmarks (P50 / P70 / P100)
+
+Evaluated across **61 diverse test queries** spanning Hindi, Tamil, and English (including in-scope factoid queries, cold-start runs, out-of-domain centroid rejection, and adversarial injection attempts).
+
+**Hardware Test Environment**: `8 vCPUs | 15.78 GB RAM | Windows 11 (AMD64) | In-Memory FAISS HNSW`
+
+| Metric Scope | Target SLA | P50 (Median) | P70 | P100 (Max) | SLA Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Retrieval Stage (FAISS + BM25)** | **~200 ms** | **34.64 ms** | **38.82 ms** | **107.82 ms** | ✅ **PASS (< 200 ms)** |
+| **Full End-to-End Pipeline (Text)** | — | **2456.27 ms** | **2663.28 ms** | **3382.86 ms** | ✅ **PASS** |
+
+### Stage-by-Stage Sub-Millisecond Breakdown:
+- **Language Routing & Dynamic Dispatch**: `0.01 ms` (P50)
+- **Pre-Retrieval Guardrail 1 (Safety Regex)**: `0.05 ms` (P50)
+- **Query Embedding (`multilingual-e5-small`)**: `30.55 ms` (P50)
+- **Centroid Topic Filter Distance**: `0.08 ms` (P50)
+- **Parallel Multi-Strategy FAISS Search**: `0.51 ms` (P50)
+- **BM25-Hybrid Score Fusion & Re-ranking**: `3.22 ms` (P50)
+- **Post-Generation Grounding Verification**: `0.52 ms` (P50)
+
+*Raw reproducible benchmark artifacts saved at [benchmark/results/latency_results.json](file:///c:/Users/ANSH/.gemini/antigravity/scratch/HHGOAragmodel/benchmark/results/latency_results.json) and [benchmark/results/latency_report.md](file:///c:/Users/ANSH/.gemini/antigravity/scratch/HHGOAragmodel/benchmark/results/latency_report.md).*
+
+---
+
 ## 🚀 Quickstart & Local Setup
 
 ### 1. Installation

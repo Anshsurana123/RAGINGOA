@@ -194,6 +194,7 @@ async def run_benchmark(iterations: int = 1) -> Dict[str, Any]:
     }
     
     # Save outputs
+    config.BENCHMARK_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     json_path = config.BENCHMARK_RESULTS_DIR / "latency_results.json"
     csv_path = config.BENCHMARK_RESULTS_DIR / "latency_results.csv"
     
@@ -204,6 +205,14 @@ async def run_benchmark(iterations: int = 1) -> Dict[str, Any]:
     df.to_csv(csv_path, index=False)
     
     logger.info(f"Benchmark results successfully saved to {json_path} and {csv_path}")
+    
+    try:
+        from benchmark.report import generate_latency_report
+        generate_latency_report(json_path=json_path)
+        logger.info("Latency report successfully generated!")
+    except Exception as e:
+        logger.warning(f"Could not generate markdown report automatically: {e}")
+        
     return benchmark_payload
 
 
