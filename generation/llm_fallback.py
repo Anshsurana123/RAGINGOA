@@ -67,6 +67,7 @@ class LLMAdapter:
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key.strip()}",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) VoiceRAG/1.0",
         }
         
         req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
