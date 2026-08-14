@@ -6,8 +6,11 @@ Pre-Retrieval Guardrails:
 Decisions are logged with boolean flags and explicit reason strings.
 """
 
+import json
 import logging
 import re
+import urllib.request
+import urllib.error
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import config
@@ -43,6 +46,49 @@ UNSAFE_PATTERNS = [
 ]
 
 COMPILED_UNSAFE_REGEXES = [re.compile(p, re.UNICODE) for p in UNSAFE_PATTERNS]
+
+
+def robust_json_parser(content: str) -> dict:
+    """
+    Robust JSON parser for LLM responses:
+    1. Attempts direct json.loads.
+    2. Strips markdown fences (```json ... ``` or ``` ... ```).
+    3. Extracts outermost { ... } substring if surrounding text exists.
+    4. Raises json.JSONDecodeError if genuinely unparseable to trigger structured retries.
+    """
+    if not content or not content.strip():
+        raise ValueError("Empty content passed to JSON parser")
+        
+    cleaned = content.strip()
+    
+    # 1. Direct parse attempt
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+        
+    # 2. Strip markdown code fences ```json ... ```
+    if cleaned.startswith("```"):
+        lines = cleaned.split("\n")
+        if len(lines) >= 2:
+            inner = "\n".join(lines[1:-1]).strip()
+            try:
+                return json.loads(inner)
+            except json.JSONDecodeError:
+                pass
+                
+    # 3. Extract outermost { ... } substring
+    start_idx = cleaned.find("{")
+    end_idx = cleaned.rfind("}")
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        json_slice = cleaned[start_idx : end_idx + 1]
+        try:
+            return json.loads(json_slice)
+        except json.JSONDecodeError:
+            pass
+            
+    # Fallback to direct json.loads to raise original JSONDecodeError for retry loop
+    return json.loads(cleaned)
 
 
 def check_neural_safety(text: str) -> Tuple[bool, Optional[str]]:
@@ -91,8 +137,8 @@ def check_neural_safety(text: str) -> Tuple[bool, Optional[str]]:
         try:
             req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
             with urllib.request.urlopen(req, timeout=3.0) as res:
-                raw = json.loads(res.read().decode("utf-8"))
-                parsed = json.loads(raw["choices"][0]["message"]["content"].strip())
+                raw = robust_json_parser(res.read().decode("utf-8"))
+                parsed = robust_json_parser(raw["choices"][0]["message"]["content"])
                 is_safe = parsed.get("is_safe", True)
                 if not is_safe:
                     reason = f"Blocked by Neural Guardrail: {parsed.get('reason', 'Harmful or hazardous content detected')}"
@@ -100,7 +146,7 @@ def check_neural_safety(text: str) -> Tuple[bool, Optional[str]]:
                     return False, reason
                 return True, None
         except Exception as e:
-            logger.debug(f"Neural guardrail check attempt {attempt} failed: {e}")
+            logger.warning(f"Neural guardrail check attempt {attempt}/{max_retries} failed (malformed or timeout): {e}")
             if attempt < max_retries:
                 import time
                 time.sleep(0.3)

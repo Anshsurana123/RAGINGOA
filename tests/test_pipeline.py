@@ -282,3 +282,25 @@ class TestEndToEndPipeline:
         assert len(resp.retrieved_chunks) > 0
         assert resp.answer_source in ["extractive", "cross_lingual_synthesis", "generated"]
         assert len(resp.answer) > 20
+
+    def test_robust_json_parser_handles_markdown_and_edge_cases(self):
+        from guardrails.pre_retrieval import robust_json_parser
+        
+        # Standard JSON
+        p1 = robust_json_parser('{"is_safe": true, "reason": "ok"}')
+        assert p1["is_safe"] is True
+        
+        # Markdown code fence JSON
+        p2 = robust_json_parser('```json\n{"is_safe": false, "reason": "harmful"}\n```')
+        assert p2["is_safe"] is False
+        assert p2["reason"] == "harmful"
+        
+        # JSON with surrounding prose
+        p3 = robust_json_parser('Here is the decision:\n{"is_safe": true, "reason": "clean"}\nThank you.')
+        assert p3["is_safe"] is True
+        
+        # Truly malformed JSON should raise exception to trigger retry loop
+        import pytest
+        with pytest.raises(Exception):
+            robust_json_parser('{"is_safe": true, reason: bad_unquoted_string}')
+
