@@ -78,6 +78,27 @@ STOPWORDS = {
 PUNCT_REGEX = re.compile(r'[\s!\"#$%&\'()*+,\-./:;<=>?@\[\\\]^_`{|}~।॥]+')
 
 
+def detect_script(text: str) -> str:
+    """Fast Unicode script identifier for adaptive multilingual routing."""
+    for char in text:
+        code = ord(char)
+        if 0x0900 <= code <= 0x097F:
+            return "Deva"
+        if 0x0B80 <= code <= 0x0BFF:
+            return "Taml"
+        if 0x0980 <= code <= 0x09FF:
+            return "Beng"
+        if 0x0C00 <= code <= 0x0C7F:
+            return "Telu"
+        if 0x0C80 <= code <= 0x0CFF:
+            return "Knda"
+        if 0x0A80 <= code <= 0x0AFF:
+            return "Gujr"
+    if bool(re.search(r"[a-zA-Z]", text)):
+        return "Latn"
+    return "Latn"
+
+
 def tokenize_indic(text: str) -> List[str]:
     """Clean and split multilingual and Indic text without breaking ligatures."""
     if not text:
@@ -98,7 +119,9 @@ def rerank_bm25_hybrid(
     top_k: int = config.RERANK_TOP_K,
 ) -> List[Dict[str, Any]]:
     """
-    Hybrid re-ranking over candidate list combining Dense vector score with BM25 score.
+    Adaptive Script-Aware Hybrid re-ranking:
+    - Same-Script (e.g. Hindi -> Hindi, English -> English): Blends BM25 lexical precision with dense vector score.
+    - Cross-Script (e.g. English -> Hindi, Hindi -> English): Dynamically bypasses BM25 to prevent false lexical penalties.
     """
     if not candidates:
         return []
@@ -109,6 +132,7 @@ def rerank_bm25_hybrid(
         c["confidence"] = float(c.get("dense_score", 0.9))
         return [c]
         
+    query_script = detect_script(query_text)
     query_tokens = tokenize_indic(query_text)
     if not query_tokens:
         query_tokens = query_text.lower().split()
@@ -135,6 +159,10 @@ def rerank_bm25_hybrid(
         
     reranked = []
     for idx, cand in enumerate(candidates):
+        cand_text = cand.get("text", "")
+        cand_script = detect_script(cand_text)
+        is_cross_script = (query_script != cand_script)
+        
         # Normalized BM25
         if bm25_range > 1e-6:
             norm_bm25 = (raw_bm25_scores[idx] - min_bm25) / bm25_range
@@ -147,33 +175,42 @@ def rerank_bm25_hybrid(
         else:
             norm_dense = max(0.0, min(1.0, raw_dense_scores[idx]))
             
-        # Linear hybrid combination
-        final_score = (1.0 - bm25_weight) * norm_dense + bm25_weight * norm_bm25
-        
-        # Absolute confidence computation (combines dense similarity with root/stem entity support)
-        dense_val = float(raw_dense_scores[idx])
-        p_tokens = set(tokenize_indic(cand.get("text", "")))
-        p_clean_text = " ".join(tokenize_indic(cand.get("text", "")))
-        
-        matched = 0
-        for qw in q_words:
-            stem = qw[:5] if len(qw) > 5 else qw
-            if qw in p_tokens or (len(qw) > 4 and stem in p_clean_text) or any(pt.startswith(stem) for pt in p_tokens if len(stem) > 3):
-                matched += 1
-                
-        overlap = matched / len(q_words) if q_words else 0.0
-        
-        # Calibrated match confidence
-        if matched > 0:
-            confidence = (dense_val * 0.70) + (0.30 * min(1.0, overlap + 0.2))
+        # Adaptive Hybrid Combination:
+        # For cross-script matches, avoid penalizing with a 0 BM25 score.
+        if is_cross_script:
+            final_score = norm_dense
         else:
-            confidence = dense_val * 0.50
+            final_score = (1.0 - bm25_weight) * norm_dense + bm25_weight * norm_bm25
+            
+        # Absolute confidence computation
+        dense_val = float(raw_dense_scores[idx])
+        
+        if is_cross_script:
+            # Cross-script candidate relies directly on dense semantic alignment
+            confidence = dense_val
+        else:
+            p_tokens = set(tokenize_indic(cand_text))
+            p_clean_text = " ".join(tokenize_indic(cand_text))
+            
+            matched = 0
+            for qw in q_words:
+                stem = qw[:5] if len(qw) > 5 else qw
+                if qw in p_tokens or (len(qw) > 4 and stem in p_clean_text) or any(pt.startswith(stem) for pt in p_tokens if len(stem) > 3):
+                    matched += 1
+                    
+            overlap = matched / len(q_words) if q_words else 0.0
+            
+            if matched > 0:
+                confidence = (dense_val * 0.70) + (0.30 * min(1.0, overlap + 0.2))
+            else:
+                confidence = dense_val * 0.75
         
         item = cand.copy()
         item["dense_score"] = dense_val
         item["bm25_score"] = float(raw_bm25_scores[idx])
         item["final_score"] = float(final_score)
         item["confidence"] = round(float(confidence), 4)
+        item["is_cross_script"] = is_cross_script
         reranked.append(item)
         
     # Sort by calibrated confidence descending, breaking ties with final_score

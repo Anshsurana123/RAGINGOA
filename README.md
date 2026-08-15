@@ -52,10 +52,13 @@ graph TD
 - **Federated Multi-Source Fusion**: A question asked in English can retrieve grounded evidence from Hindi and Tamil passages simultaneously.
 - **Unified Cross-Lingual Synthesis**: The generation harness fuses facts across all retrieved language blocks (`[EN Source #1]`, `[HI Source #2]`, `[TA Source #3]`) and synthesizes a comprehensive, fluent response translated back into the user's query language.
 
-### 2. ⚡ Sub-200ms Cross-Encoder Re-Ranking & Calibrated Disqualification Gate
+### 2. ⚡ Sub-200ms Cross-Encoder Re-Ranking & Adaptive Script-Aware BM25
 - **Two-Stage Precision Pipeline**:
-  - **Stage 1 (Bi-Encoder + BM25)**: Fast dense FAISS search retrieves candidate passages in $\sim3\text{ ms}$.
+  - **Stage 1 (Bi-Encoder + Adaptive BM25)**: Fast dense FAISS search retrieves candidate passages in $\sim3\text{ ms}$.
   - **Stage 2 (Cross-Encoder)**: Evaluates top-3 candidate pairs with `cross-encoder/ms-marco-MiniLM-L-6-v2` in $<25\text{ ms}$ on CPU using optimized prefix slicing and PyTorch inference mode.
+- **Adaptive Script-Aware BM25**:
+  - **Monolingual Search (e.g. Hindi $\to$ Hindi, English $\to$ English)**: Uses full BM25 lexical precision + dense vector score to capture exact entities and nouns.
+  - **Cross-Script Search (e.g. English $\to$ Hindi, Hindi $\to$ English)**: Automatically detects script divergence and bypasses BM25 to prevent 0-score lexical penalties, relying 100% on the aligned multilingual vector space.
 - **Elimination of False-Positive Nearest Neighbors**: Solves the classic bi-encoder blind spot where out-of-corpus queries (e.g. *"what is a computer"*) matched weakly related passages (e.g. hacker definitions). Deep cross-attention scores relevance accurately.
 - **Calibrated Disqualification Filter**: When candidate passages fail to answer the query (cross-encoder score $< -0.5$), the system **cleanly declines** with *"No relevant information found in the indexed corpus"* rather than hallucinating or returning distractor text.
 
@@ -104,12 +107,13 @@ Rather than naive fixed-size token splitting, the pipeline implements **3 specia
 | **Embedding Model** | `intfloat/multilingual-e5-small` | SOTA multilingual retrieval embedding. Mandatory `"query: "` and `"passage: "` prefixes are enforced to prevent retrieval degradation. |
 | **Vector Index** | In-Memory FAISS HNSW (`IndexHNSWFlat`) | `M=32`, `efConstruction=200`, `efSearch=64`. Sub-millisecond CPU search with zero network latency. |
 | **Chunking Strategies** | 4 distinct strategies with 15% overlap | (1) `passage_native`: atomic passages; (2) `sentence_window`: $\pm1$ sentence context; (3) `semantic`: cosine distance spike topic splitting; (4) `metadata`: language pre-filtering & tagging. |
-| **Hybrid Re-ranking** | BM25 + Cross-Encoder (`ms-marco-MiniLM-L-6-v2`) | Combines lexical BM25 with deep cross-attention re-ranking on top-3 candidates in $<25\text{ms}$ on CPU. |
+| **Hybrid Re-ranking** | Adaptive BM25 + Cross-Encoder (`ms-marco-MiniLM-L-6-v2`) | Combines adaptive script-aware BM25 with deep cross-attention re-ranking on top-3 candidates in $<25\text{ms}$ on CPU. |
 | **Disqualification Gate** | Calibrated Cross-Encoder Filter ($\text{CE} < -0.5$) | Immediately declines queries whose top match fails deep relevance checks, preventing false positive answers. |
 | **Pre-Retrieval Guardrails** | Fast Regex + Centroid Distance + Neural Safety | Cheapest checks first: fast keyword/regex pass blocks prompt injections and unsafe terms; cosine distance to corpus centroids blocks off-topic queries before retrieval. |
 | **Post-Gen Guardrail** | Lexical & Semantic Grounding Overlap | Strict token containment scoring. Rejects ungrounded hallucinations with standard template. |
 | **Generation Strategy** | Extractive Fast-Path + LLM Fallback | Sub-millisecond deterministic passage extraction on CPU, with optional multi-source synthesis via Groq. |
 | **Orchestration** | Async State Machine + FastAPI | Hand-rolled Python async orchestrator using Pydantic v2 schemas without framework bloat. |
+
 
 
 ---
