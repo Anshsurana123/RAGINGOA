@@ -89,17 +89,19 @@ lora_config = LoraConfig(
 model = get_peft_model(model, lora_config)
 model.print_trainable_parameters()
 
-# 7. Training Arguments
+# 7. Training Arguments optimized for full 126k dataset
 training_args = TrainingArguments(
     output_dir=OUTPUT_DIR,
-    per_device_train_batch_size=8 if is_cuda else 2,
+    per_device_train_batch_size=16 if is_cuda else 2,
     gradient_accumulation_steps=2,
     learning_rate=2e-4,
     lr_scheduler_type="cosine",
-    num_train_epochs=3,
-    logging_steps=25,
-    eval_strategy="epoch",
-    save_strategy="epoch",
+    num_train_epochs=1,
+    logging_steps=100,
+    eval_strategy="steps",
+    eval_steps=1000,
+    save_strategy="steps",
+    save_steps=1000,
     fp16=is_cuda,
     optim="paged_adamw_8bit" if is_cuda else "adamw_torch",
     report_to="none",
@@ -112,7 +114,7 @@ trainer = SFTTrainer(
     train_dataset=formatted_train,
     eval_dataset=formatted_eval,
     dataset_text_field="text",
-    max_seq_length=512,
+    max_seq_length=384,
     tokenizer=tokenizer,
     args=training_args,
 )

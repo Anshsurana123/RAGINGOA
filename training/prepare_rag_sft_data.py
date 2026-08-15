@@ -11,7 +11,7 @@ from pathlib import Path
 # Add project root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import config
 
 DATA_DIR = Path(config.DATA_DIR)
@@ -19,9 +19,10 @@ PROCESSED_DIR = Path(getattr(config, "PROCESSED_DATA_DIR", DATA_DIR / "processed
 OUTPUT_FILE = PROCESSED_DIR / "rag_sft_dataset.jsonl"
 
 
-def extract_sft_examples() -> List[Dict[str, Any]]:
+def extract_sft_examples(limit_per_lang: Optional[int] = None) -> List[Dict[str, Any]]:
     """
     Extracts high-quality (Question, Context, Answer) triplets from processed files.
+    If limit_per_lang is None, extracts 100% of all passages in the corpus.
     """
     examples = []
     
@@ -76,7 +77,7 @@ def extract_sft_examples() -> List[Dict[str, Any]]:
                         
                         examples.append({"messages": messages, "lang": lang})
                         count += 1
-                        if count >= 1500:  # 1,500 balanced pairs per language (4,500 total)
+                        if limit_per_lang and count >= limit_per_lang:
                             break
                 except Exception:
                     continue
