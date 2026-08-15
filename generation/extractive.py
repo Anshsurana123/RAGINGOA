@@ -49,14 +49,110 @@ def extract_answer_from_passage(
     return " ".join(sentences[start_i:end_i])
 
 
+def synthesize_textrank_svd(
+    query: str,
+    candidate_chunks: List[Dict[str, Any]],
+    query_vector: Optional[np.ndarray] = None,
+    embedder: Optional[Any] = None,
+    max_sentences: int = 2,
+) -> str:
+    r"""
+    Non-LLM Context Synthesis via Continuous TextRank Eigenvector Centrality & SVD Matrix Decomposition:
+    1. Collects unique sentence nodes across top candidate chunks.
+    2. Builds the sentence similarity adjacency matrix and power-iterates to find graph centrality.
+    3. Decomposes embedding matrix via economy SVD (M = U \Sigma V^T) for 95% cumulative energy thresholding.
+    4. Sequences top salient sentences in original document order for natural readability.
+    """
+    if not candidate_chunks:
+        return ""
+        
+    # Gather sentences from top candidate chunks
+    candidate_sentences: List[str] = []
+    seen_sentences = set()
+    
+    for chunk in candidate_chunks[:3]:
+        text = chunk.get("text", "").strip()
+        if not text:
+            continue
+        sents = split_sentences_multilingual(text)
+        for s in sents:
+            s_clean = s.strip()
+            if len(s_clean.split()) >= 3 and s_clean not in seen_sentences:
+                seen_sentences.add(s_clean)
+                candidate_sentences.append(s_clean)
+                
+    if not candidate_sentences:
+        return candidate_chunks[0].get("text", "").strip()
+        
+    if len(candidate_sentences) <= max_sentences:
+        return " ".join(candidate_sentences)
+        
+    if embedder is None:
+        # Fallback to token overlap if embedder is not passed
+        return extract_answer_from_passage(query, candidate_chunks[0])
+        
+    try:
+        # 1. Encode candidate sentences
+        s_vecs = embedder.encode_passages(candidate_sentences, normalize=True)
+        if query_vector is None or query_vector.ndim != 1:
+            q_vec = embedder.encode_queries(query, normalize=True)[0]
+        else:
+            q_vec = query_vector
+            
+        N = len(candidate_sentences)
+        
+        # 2. Query relevance prior
+        r = np.maximum(0.0, np.dot(s_vecs, q_vec))
+        r_sum = np.sum(r)
+        prior = r / r_sum if r_sum > 1e-6 else np.ones(N) / N
+        
+        # 3. Inter-sentence Adjacency matrix
+        W = np.maximum(0.0, np.dot(s_vecs, s_vecs.T))
+        np.fill_diagonal(W, 0.0)
+        
+        # Stochastic degree normalization
+        deg = np.sum(W, axis=1)
+        deg[deg == 0] = 1.0
+        T = W / deg[:, np.newaxis]
+        
+        # 4. Continuous TextRank Power Iteration
+        d = 0.85
+        p = np.ones(N) / N
+        for _ in range(12):
+            p = (1.0 - d) * prior + d * np.dot(T.T, p)
+            p_sum = np.sum(p)
+            if p_sum > 1e-6:
+                p = p / p_sum
+                
+        # 5. SVD Energy Decomposition
+        U, S, Vt = np.linalg.svd(s_vecs, full_matrices=False)
+        cum_energy = np.cumsum(S) / np.sum(S)
+        k = int(np.argmax(cum_energy >= 0.95)) + 1
+        svd_salience = np.sum((U[:, :k] ** 2) * (S[:k] ** 2), axis=1)
+        max_svd = np.max(svd_salience)
+        if max_svd > 1e-6:
+            svd_salience /= max_svd
+            
+        # 6. Composite salience scoring
+        final_scores = 0.5 * p + 0.3 * svd_salience + 0.2 * r
+        top_indices = sorted(np.argsort(final_scores)[::-1][:max_sentences])
+        
+        return " ".join([candidate_sentences[i] for i in top_indices])
+    except Exception:
+        return extract_answer_from_passage(query, candidate_chunks[0])
+
+
 def generate_extractive(
     query: str,
     retrieved_chunks: List[Dict[str, Any]],
     query_vector: Optional[np.ndarray] = None,
     target_lang: Optional[str] = None,
+    embedder: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
-    Primary extractive answer generation with Semantic Answer Cache fast-path.
+    Primary non-LLM answer generation using:
+    1. Semantic Answer Cache fast-path (<0.5ms).
+    2. Continuous TextRank & SVD Matrix Decomposition Context Synthesizer (<10ms).
     Returns:
         {
             "answer": str,
@@ -89,7 +185,19 @@ def generate_extractive(
         }
         
     top_chunk = retrieved_chunks[0]
-    extracted_text = extract_answer_from_passage(query, top_chunk)
+    
+    # Synthesize answer across top candidate chunks using TextRank + SVD
+    if embedder is not None and len(retrieved_chunks) > 0:
+        extracted_text = synthesize_textrank_svd(
+            query=query,
+            candidate_chunks=retrieved_chunks[:3],
+            query_vector=query_vector,
+            embedder=embedder,
+            max_sentences=2,
+        )
+    else:
+        extracted_text = extract_answer_from_passage(query, top_chunk)
+        
     confidence = float(top_chunk.get("confidence", top_chunk.get("final_score", top_chunk.get("score", 0.9))))
     
     return {

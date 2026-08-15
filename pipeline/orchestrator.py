@@ -415,13 +415,14 @@ class RAGPipelineOrchestrator:
                 reranked_chunks,
                 query_vector=query_vector,
                 target_lang=target_lang,
+                embedder=self.embedder,
             )
             candidate_answer = extractive_res["answer"]
             answer_source = extractive_res["answer_source"]
             gen_details = (
                 "Gold dataset answer returned via SemanticAnswerCache lookup (<0.5ms)"
                 if answer_source == "gold_answer_cache"
-                else "Extractive-first grounded passage extraction (zero-latency direct return)"
+                else "Non-LLM Context Synthesis via Continuous TextRank & SVD Matrix Decomposition"
             )
         
         timings.append(StageTiming(
