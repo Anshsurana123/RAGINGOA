@@ -119,18 +119,18 @@ GROUNDING_OVERLAP_THRESHOLD = 0.30
 # ==========================================
 # 7. LLM MULTI-TIER PROVIDER & GENERATION CONFIG
 # ==========================================
-# Tier-1 Primary: Groq / OpenAI-compatible (Fastest sub-300ms model)
+# Tier-1 Primary: Groq / OpenAI-compatible (High-fidelity 70B instruction model, ~330ms)
 LLM_API_KEY = os.getenv("LLM_API_KEY", os.getenv("GROQ_API_KEY", ""))
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1" if os.getenv("GROQ_API_KEY") else "https://api.openai.com/v1")
-LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.1-8b-instant" if (os.getenv("GROQ_API_KEY") or "groq.com" in os.getenv("LLM_BASE_URL", "")) else "gpt-4o-mini")
-LLM_TIMEOUT_SECONDS = 12.0
+LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile" if (os.getenv("GROQ_API_KEY") or "groq.com" in os.getenv("LLM_BASE_URL", "")) else "gpt-4o-mini")
+LLM_TIMEOUT_SECONDS = 15.0
 
-# Tier-2 & Tier-3 Backup: Cerebras High-Speed LPU (Fastest 120B model)
+# Tier-2 & Tier-3 Backup: Cerebras High-Speed LPU (120B model for high instruction following)
 CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "")
 CEREBRAS_BASE_URL = os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.ai/v1")
 CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "gpt-oss-120b")
 CEREBRAS_FALLBACK_MODEL = os.getenv("CEREBRAS_FALLBACK_MODEL", "gemma-4-31b")
-CEREBRAS_TIMEOUT_SECONDS = 10.0
+CEREBRAS_TIMEOUT_SECONDS = 12.0
 
 # ==========================================
 # 8. SERVER CONFIGURATION
