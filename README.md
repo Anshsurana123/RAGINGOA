@@ -34,10 +34,10 @@ graph TD
     G --> H2[Semantic & Sentence-Window Index]
     H1 --> I[Candidate Merge & Reciprocal Rank Fusion RRF]
     H2 --> I
-    I --> J[BM25-Hybrid Multi-lingual Score Fusion]
+    I --> J[Adaptive Script-Aware BM25 Score Fusion]
     J --> K[Cross-Encoder Deep Re-Ranker ms-marco-MiniLM-L-6-v2]
     K -- CE Score < -0.5 --> Y[Declined Response: No Relevant Info in Corpus]
-    K -- High Relevance --> L[Extractive QA Fast-Path / Local SLM / LLM Synthesis]
+    K -- High Relevance --> L[Non-LLM Context Synthesis: TextRank Eigenvector + SVD Decomposition]
     L --> M[Post-Generation Grounding & Hallucination Guardrail]
     M -- Grounded --> N[Grounded JSON Response + Full StageTimings]
     M -- Insufficient Info --> Y
