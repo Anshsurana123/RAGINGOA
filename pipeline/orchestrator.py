@@ -495,13 +495,24 @@ class RAGPipelineOrchestrator:
     def _resolve_target_language(self, text: str, hint: Optional[str]) -> str:
         """
         Dynamically detects or routes language against config.LANGUAGES.
-        1. Checks character script Unicode blocks (Devanagari, Tamil, Bengali, Telugu, etc.).
-        2. Detects Latin script (English) when input consists of English letters.
-        3. Uses valid hint when script is ambiguous or matching.
+        1. Explicit User Selection: If the user selected a valid language (not 'auto' or 'unknown'), respect it.
+        2. Auto-detection: If 'auto' or no hint, inspect character script Unicode blocks (Devanagari, Tamil, Bengali, etc.).
+        3. Latin script check: Route to English ('en') if Latin characters are present in auto mode.
+        4. Safe default fallback to 'en' or first configured language.
         """
+        # 1. First priority: Respect explicit user selection if provided (and not 'auto' / 'unknown')
+        if hint and hint.lower().strip() not in ["auto", "unknown", "none", ""]:
+            normalized_hint = hint.lower().strip()
+            if normalized_hint in config.LANGUAGES:
+                return normalized_hint
+            # Check if hint matches a prefix like 'hi-IN' or registered language code
+            for lang_code in config.LANGUAGES:
+                if normalized_hint.startswith(lang_code):
+                    return lang_code
+
         cleaned = text.strip() if text else ""
         
-        # 1. First scan for native Indic scripts
+        # 2. Auto-detection from Indic native Unicode scripts
         for char in cleaned:
             code = ord(char)
             # Devanagari (Hindi, Marathi, Sanskrit, Nepali)
@@ -531,17 +542,13 @@ class RAGPipelineOrchestrator:
                 if "gu" in config.LANGUAGES:
                     return "gu"
                     
-        # 2. Check if the text contains Latin letters (English)
+        # 3. Check if the text contains Latin letters (English)
         has_latin = bool(re.search(r"[a-zA-Z]", cleaned))
         if has_latin:
             if "en" in config.LANGUAGES:
                 return "en"
                 
-        # 3. If no script was identifiable, rely on explicit hint if valid
-        if hint and hint.lower() in config.LANGUAGES and hint.lower() != "auto":
-            return hint.lower()
-            
-        # 4. Default fallback to 'en' or first language
+        # 4. Default fallback to 'en' or first configured language
         if "en" in config.LANGUAGES:
             return "en"
         return config.LANGUAGES[0]

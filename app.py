@@ -165,12 +165,22 @@ async def get_supported_languages() -> Dict[str, Any]:
     }
 
 
+def _parse_bool(val: Any, default: bool = True) -> bool:
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.strip().lower() in ("true", "1", "yes", "on")
+    return bool(val)
+
+
 @app.post("/query", response_model=QueryResponse)
 async def query_pipeline(
     file: Optional[UploadFile] = File(None),
     text: Optional[str] = Form(None),
     language_hint: Optional[str] = Form(None),
-    cross_lingual: Optional[bool] = Form(True),
+    cross_lingual: Optional[Any] = Form(None),
     request_body: Optional[QueryRequest] = None,
 ) -> QueryResponse:
     """
@@ -178,6 +188,7 @@ async def query_pipeline(
     """
     orchestrator = get_orchestrator()
     temp_audio_path = None
+    is_cross_lingual = _parse_bool(cross_lingual, default=True)
     
     try:
         if request_body and (request_body.text or request_body.audio_path):
@@ -192,7 +203,7 @@ async def query_pipeline(
             req = QueryRequest(
                 audio_path=temp_audio_path,
                 language_hint=language_hint,
-                cross_lingual=True if cross_lingual is None else cross_lingual,
+                cross_lingual=is_cross_lingual,
             )
             return await orchestrator.execute(req)
             
@@ -200,7 +211,7 @@ async def query_pipeline(
             req = QueryRequest(
                 text=text.strip(),
                 language_hint=language_hint,
-                cross_lingual=True if cross_lingual is None else cross_lingual,
+                cross_lingual=is_cross_lingual,
             )
             return await orchestrator.execute(req)
             
