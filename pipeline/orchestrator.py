@@ -346,7 +346,7 @@ class RAGPipelineOrchestrator:
         ))
         
         # -------------------------------------------------------------
-        # STAGE 8: Post-Generation Grounding Guardrail
+        # STAGE 8: Post-Generation Grounding & LLM Safety Refusal Guardrail
         # -------------------------------------------------------------
         ground_start_t = time.perf_counter()
         is_grounded, ground_score, final_answer, ground_reason = check_grounding(
@@ -360,7 +360,11 @@ class RAGPipelineOrchestrator:
         guardrails.grounding_score = round(ground_score, 4)
         guardrails.grounding_reason = ground_reason
         
-        if not is_grounded:
+        if ground_reason and "Blocked:" in ground_reason:
+            guardrails.unsafe_detected = True
+            guardrails.unsafe_reason = ground_reason
+            answer_source = "declined"
+        elif not is_grounded:
             answer_source = "declined"
             
         timings.append(StageTiming(

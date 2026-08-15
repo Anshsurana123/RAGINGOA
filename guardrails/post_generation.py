@@ -15,6 +15,33 @@ import config
 logger = logging.getLogger(__name__)
 
 DECLINED_RESPONSE_TEMPLATE = "I don't have enough grounded information to answer that."
+DECLINED_UNSAFE_TEMPLATE = "Declined: Request was blocked by AI Safety Guardrails."
+
+LLM_REFUSAL_PATTERNS = [
+    re.compile(r"i (cannot|can't|am unable to) (fulfill|assist|help|comply|provide|answer|generate)", re.I),
+    re.compile(r"i am (sorry|unable),? but i (cannot|can't)", re.I),
+    re.compile(r"as an ai (language model|assistant),? i (cannot|can't)", re.I),
+    re.compile(r"(against|violates) (my |the )?(safety|content|usage) (policy|guidelines|rules)", re.I),
+    re.compile(r"(dangerous|illegal|harmful|unethical|weapon|explosive|toxic) (activity|instruction|material|content)", re.I),
+    re.compile(r"(मैं इस अनुरोध को पूरा नहीं कर सकता|यह अनुरोध सुरक्षा नीति के विरुद्ध है)", re.I),
+    re.compile(r"(என்னால் இந்த கோரிக்கையை நிறைவேற்ற முடியாது|இது பாதுகாப்பு வழிகாட்டுதல்களுக்கு எதிரானது)", re.I),
+]
+
+
+def detect_llm_safety_refusal(text: str) -> Tuple[bool, Optional[str]]:
+    """
+    Detects if the LLM generated a refusal or safety policy block across languages.
+    Leverages native frontier model RLHF / constitutional safety alignment.
+    """
+    if not text:
+        return False, None
+    for pattern in LLM_REFUSAL_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            reason = f"Native LLM safety refusal detected ('{match.group(0)}')"
+            logger.warning(reason)
+            return True, reason
+    return False, None
 
 
 def tokenize_words(text: str) -> List[str]:
@@ -51,7 +78,7 @@ def check_grounding(
     embedder=None,
 ) -> Tuple[bool, float, str, Optional[str]]:
     """
-    Evaluates grounding quality of answer against retrieved contexts.
+    Evaluates grounding quality and safety refusal of answer against retrieved contexts.
     
     Returns:
         (is_grounded, grounding_score, final_answer, reason)
@@ -60,6 +87,12 @@ def check_grounding(
         reason = "Empty answer produced"
         return False, 0.0, DECLINED_RESPONSE_TEMPLATE, reason
 
+    # Check 1: Native LLM Safety Refusal leverage
+    is_refusal, refusal_reason = detect_llm_safety_refusal(answer)
+    if is_refusal:
+        return False, 0.0, DECLINED_UNSAFE_TEMPLATE, f"Blocked: {refusal_reason}"
+
+    # Check 2: Grounded unanswerable refusal
     if "don't have enough grounded information" in answer.lower():
         reason = "Context passages lacked sufficient factual information to answer question"
         return False, 0.0, answer, reason
