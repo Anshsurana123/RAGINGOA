@@ -26,7 +26,7 @@ from pipeline.schemas import (
 )
 from retrieval.embed import get_embedder
 from retrieval.index_faiss import get_index_manager
-from retrieval.rerank import rerank_bm25_hybrid
+from retrieval.rerank import rerank_bm25_hybrid, rerank_cross_encoder
 from chunking.hybrid_merge import merge_and_fuse_candidates
 from guardrails.pre_retrieval import check_unsafe_content, check_off_topic_query
 from guardrails.post_generation import check_grounding, DECLINED_RESPONSE_TEMPLATE
@@ -277,30 +277,56 @@ class RAGPipelineOrchestrator:
         ))
         
         # -------------------------------------------------------------
-        # STAGE 6: BM25-Hybrid Re-ranking & Post-Retrieval Confidence Guardrail
+        # STAGE 6: BM25-Hybrid & Cross-Encoder Re-ranking & Disqualification Guardrail
         # -------------------------------------------------------------
         rerank_start_t = time.perf_counter()
         candidate_dicts = [c.to_dict() for c in merged_candidates]
-        reranked_chunks = rerank_bm25_hybrid(
+        bm25_reranked = rerank_bm25_hybrid(
             query_text=raw_query_text,
             candidates=candidate_dicts,
             bm25_weight=config.HYBRID_BM25_WEIGHT,
             top_k=config.RERANK_TOP_K,
         )
         
-        # Post-retrieval confidence check (catches off-topic queries where retrieved chunks have weak match)
+        # Cross-Encoder deep cross-attention re-ranking on top candidates
+        if getattr(config, "ENABLE_CROSS_ENCODER", True):
+            reranked_chunks = rerank_cross_encoder(
+                query_text=raw_query_text,
+                candidates=bm25_reranked,
+                top_k=config.CROSS_ENCODER_TOP_K,
+            )
+        else:
+            reranked_chunks = bm25_reranked
+            
+        # Post-retrieval confidence & cross-encoder relevance check
         top_chunk = reranked_chunks[0] if reranked_chunks else None
         top_conf = float(top_chunk.get("confidence", top_chunk.get("dense_score", 0.0))) if top_chunk else 0.0
+        top_ce_score = float(top_chunk.get("cross_encoder_score", 0.0)) if top_chunk and "cross_encoder_score" in top_chunk else None
         
-        if not reranked_chunks or top_conf < config.MIN_CONFIDENT_MATCH_SCORE:
-
-            guardrails.off_topic_detected = True
-            guardrails.off_topic_reason = (
+        is_disqualified = False
+        disqualify_reason = ""
+        
+        if not reranked_chunks:
+            is_disqualified = True
+            disqualify_reason = "Declined: no candidate passages available"
+        elif top_ce_score is not None and top_ce_score < getattr(config, "CROSS_ENCODER_THRESHOLD", -0.5):
+            is_disqualified = True
+            disqualify_reason = (
+                f"Declined: top cross-encoder relevance ({top_ce_score:.4f}) below threshold "
+                f"({config.CROSS_ENCODER_THRESHOLD:.4f})"
+            )
+        elif top_conf < config.MIN_CONFIDENT_MATCH_SCORE:
+            is_disqualified = True
+            disqualify_reason = (
                 f"Declined: top retrieval confidence ({top_conf:.4f}) below calibrated "
                 f"minimum threshold ({config.MIN_CONFIDENT_MATCH_SCORE:.4f})"
             )
+        
+        if is_disqualified:
+            guardrails.off_topic_detected = True
+            guardrails.off_topic_reason = disqualify_reason
             timings.append(StageTiming(
-                stage="bm25_hybrid_reranking",
+                stage="bm25_cross_encoder_reranking",
                 ms=round((time.perf_counter() - rerank_start_t) * 1000, 2),
                 success=False,
                 details=guardrails.off_topic_reason,
@@ -315,11 +341,12 @@ class RAGPipelineOrchestrator:
                 start_t=start_pipeline_t,
             )
             
+        ce_info = f", CE={top_ce_score:.4f}" if top_ce_score is not None else ""
         timings.append(StageTiming(
-            stage="bm25_hybrid_reranking",
+            stage="bm25_cross_encoder_reranking",
             ms=round((time.perf_counter() - rerank_start_t) * 1000, 2),
             success=True,
-            details=f"BM25 hybrid score fusion on top-{len(reranked_chunks)} candidates (confidence={top_conf:.4f})",
+            details=f"BM25 + Cross-Encoder hybrid ranking on top-{len(reranked_chunks)} candidates (confidence={top_conf:.4f}{ce_info})",
         ))
 
         

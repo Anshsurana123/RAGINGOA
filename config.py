@@ -91,6 +91,21 @@ FAISS_TOP_K = 15
 RERANK_TOP_K = 5
 HYBRID_BM25_WEIGHT = 0.35  # Dense score weight = 1 - HYBRID_BM25_WEIGHT
 
+# Cross-Encoder Re-Ranking Configuration (Sub-200ms CPU re-ranking)
+ENABLE_CROSS_ENCODER = True
+CROSS_ENCODER_MODEL_NAME = os.getenv(
+    "CROSS_ENCODER_MODEL_NAME", "cross-encoder/ms-marco-MiniLM-L-6-v2"
+)
+CROSS_ENCODER_LOCAL_CACHE = Path(
+    os.getenv(
+        "CROSS_ENCODER_LOCAL_CACHE",
+        "C:/Users/ANSH/Documents/antigravity/keen-hawking/model_cache/cross-encoder-ms-marco-MiniLM-L-6-v2",
+    )
+)
+CROSS_ENCODER_TOP_K = 3
+CROSS_ENCODER_THRESHOLD = float(os.getenv("CROSS_ENCODER_THRESHOLD", "-0.5"))
+
+
 # ==========================================
 # 4. CHUNKING CONFIGURATION
 # ==========================================
