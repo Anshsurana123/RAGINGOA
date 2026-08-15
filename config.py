@@ -135,6 +135,7 @@ CEREBRAS_TIMEOUT_SECONDS = 12.0
 # Local Small Language Model (SLM) Offline Generation (Sub-100ms on CPU)
 ENABLE_LOCAL_SLM = os.getenv("ENABLE_LOCAL_SLM", "false").lower() == "true"
 LOCAL_SLM_MODEL_PATH = os.getenv("LOCAL_SLM_MODEL_PATH", "Qwen/Qwen2.5-0.5B-Instruct")
+ADAPTION_API_KEY = os.getenv("ADAPTION_API_KEY", "")
 
 # ==========================================
 # 8. SERVER CONFIGURATION
