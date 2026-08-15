@@ -51,9 +51,9 @@ class LLMAdapter:
             "You are provided with context passages retrieved across multiple languages (English, Hindi, Tamil). "
             "Instructions:\n"
             "1. Extract all factual information relevant to the question from ALL provided passages regardless of passage language.\n"
-            f"2. Synthesize a complete, fluent, and comprehensive answer strictly in the target language: {lang_instruction}\n"
-            "3. Base your answer ONLY on facts present in the context passages. Do not invent or assume facts.\n"
-            "4. If the context does not contain sufficient facts to answer the question, respond with "
+            f"2. Synthesize a direct, complete, and fluent answer strictly in the target language: {lang_instruction}\n"
+            "3. Base your answer on the context passages. Explain the key facts clearly.\n"
+            "4. Only if the context passages are completely irrelevant and contain zero relevant facts, respond with: "
             "'I don't have enough grounded information to answer that.'"
         )
         
@@ -78,8 +78,11 @@ class LLMAdapter:
         }
         
         max_retries = 3
+        current_model = self.model
         for attempt in range(1, max_retries + 1):
             try:
+                payload["model"] = current_model
+                data = json.dumps(payload).encode("utf-8")
                 req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
                 with urllib.request.urlopen(req, timeout=self.timeout) as response:
                     if response.status == 200:
@@ -89,10 +92,13 @@ class LLMAdapter:
                     else:
                         logger.warning(f"LLM API attempt {attempt} returned HTTP {response.status}")
             except Exception as e:
-                logger.warning(f"LLM API attempt {attempt}/{max_retries} failed: {e}")
+                logger.warning(f"LLM API attempt {attempt}/{max_retries} failed on {current_model}: {e}")
+                # If 70B model hits rate limits on Groq, fallback to 8B instant model
+                if "429" in str(e) and "groq.com" in self.base_url:
+                    current_model = "llama-3.1-8b-instant"
                 if attempt < max_retries:
                     import time
-                    time.sleep(0.5 * (2 ** (attempt - 1)))
+                    time.sleep(0.3 * attempt)
                 else:
                     logger.error(f"All {max_retries} LLM attempts exhausted. Recovering via local deterministic synthesis.")
                     return self._local_fallback_synthesize(prompt, context)

@@ -111,7 +111,7 @@ SARVAM_STT_MAX_RETRIES = 1
 # 6. GUARDRAIL THRESHOLDS
 # ==========================================
 # Pre-retrieval off-topic cosine distance threshold from nearest corpus centroid
-OFF_TOPIC_DISTANCE_THRESHOLD = 0.78  # Cosine distance (1 - cosine_similarity)
+OFF_TOPIC_DISTANCE_THRESHOLD = 0.18  # Calibrated for multilingual-e5-small normalized embeddings (1 - cosine_similarity)
 
 # Post-generation grounding check threshold (lexical + semantic overlap)
 GROUNDING_OVERLAP_THRESHOLD = 0.30

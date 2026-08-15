@@ -101,8 +101,9 @@ def check_neural_safety(text: str) -> Tuple[bool, Optional[str]]:
         return True, None
         
     endpoint = f"{config.LLM_BASE_URL.rstrip('/')}/chat/completions"
+    safety_model = "llama-3.1-8b-instant" if "groq.com" in config.LLM_BASE_URL else config.LLM_MODEL
     payload = {
-        "model": config.LLM_MODEL,
+        "model": safety_model,
         "messages": [
             {
                 "role": "system",
