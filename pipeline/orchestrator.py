@@ -299,15 +299,28 @@ class RAGPipelineOrchestrator:
         )
         
         # -------------------------------------------------------------
-        # STAGE 7: Grounded Generation (LLM Synthesis & Multi-Source Fusion)
+        # STAGE 7: Grounded Generation (Extractive-First with Swappable LLM Multi-Passage Synthesis)
         # -------------------------------------------------------------
         gen_start_t = time.perf_counter()
+        
+        # Primary extractive candidate from top retrieved passage
+        extractive_res = generate_extractive(raw_query_text, reranked_chunks)
+        candidate_answer = extractive_res["answer"]
+        answer_source = extractive_res["answer_source"]
         
         # Check if retrieved evidence contains cross-lingual sources relative to target_lang
         top_languages = [c.get("source_lang", "").lower() for c in reranked_chunks[:3]]
         has_cross_lingual_evidence = any(l != target_lang.lower() for l in top_languages if l)
         
-        if config.LLM_API_KEY and config.LLM_API_KEY.strip():
+        # Extractive-First Policy:
+        # For single-language factoid queries with high top-chunk confidence, return extractive answer directly.
+        # Only invoke LLM when synthesis across multiple passages or cross-lingual translation is needed.
+        needs_llm_synthesis = (
+            (has_cross_lingual_evidence and request.cross_lingual) or
+            (len(reranked_chunks) > 1 and float(reranked_chunks[0].get("final_score", 0)) < 0.55)
+        )
+        
+        if needs_llm_synthesis and config.LLM_API_KEY and config.LLM_API_KEY.strip():
             # Multi-source compilation & grounded synthesis with language awareness
             context_blocks = []
             for i, c in enumerate(reranked_chunks[:5]):
@@ -332,10 +345,7 @@ class RAGPipelineOrchestrator:
                 answer_source = "generated"
                 gen_details = f"Grounded LLM synthesis via {config.LLM_MODEL}"
         else:
-            extractive_res = generate_extractive(raw_query_text, reranked_chunks)
-            candidate_answer = extractive_res["answer"]
-            answer_source = extractive_res["answer_source"]
-            gen_details = "Extractive-first grounded passage extraction (offline local fallback)"
+            gen_details = "Extractive-first grounded passage extraction (zero-latency direct return)"
         
         timings.append(StageTiming(
             stage="extractive_generation",

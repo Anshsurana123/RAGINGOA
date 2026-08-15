@@ -30,7 +30,7 @@ UNSAFE_PATTERNS = [
     r"(?i)\b(system\s*instructions|tool\s*definitions|hidden\s*prompts|internal\s*metadata)\b",
     
     # Violence / Weapons / Explosives / Dangerous materials (flexible phrase and root matching)
-    r"(?i)\b(how\s+to\s+)?(make|build|create|craft|assemble|synthesize|manufacture|prepare|construct)\s+(a\s+)?(bomb|explosive|weapon|grenade|ied|molotov|poison|toxin|firearm|chemical\s+weapon|biological\s+weapon|gunpowder|detonator)\b",
+    r"(?i)\b(how\s+to\s+)?(make|build|create|craft|assemble|synthesize|manufacture|prepare|construct)\s+(a\s+)?(deadly\s+|toxic\s+|lethal\s+|dangerous\s+)?(bomb|explosive|weapon|grenade|ied|molotov|poison|toxin|firearm|chemical\s+weapon|biological\s+weapon|gunpowder|detonator)\b",
     r"(?i)\b(bomb\s*making|explosive\s*recipe|pipe\s*bomb|suicide\s*vest|car\s*bomb|dirty\s*bomb)\b",
     r"(?i)\b(how\s+to\s+)?(kill|murder|attack|assassinate|stab|poison|torture|harm|abuse)\s+(someone|people|a\s+person|anybody|myself|yourself)\b",
     r"(?i)\b(commit\s+suicide|how\s+to\s+hang\s+myself|self[- ]harm|slit\s+(my\s+)?wrists|kill\s+yourself|ways\s+to\s+die)\b",
@@ -154,7 +154,7 @@ def check_neural_safety(text: str) -> Tuple[bool, Optional[str]]:
     return True, None
 
 
-def check_unsafe_content(text: str, enable_neural: bool = True) -> Tuple[bool, Optional[str]]:
+def check_unsafe_content(text: str, enable_neural: bool = False) -> Tuple[bool, Optional[str]]:
     """
     Multi-Tiered Safety Guardrail:
     1. Tier 1: Fast keyword & regex pattern matching (< 0.05ms)

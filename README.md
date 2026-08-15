@@ -238,5 +238,44 @@ To scale from 3 languages (`hi`, `ta`, `en`) to all 13 Indic languages:
 
 ---
 
+## 🚀 Hugging Face Space Deployment
+
+The system is deployed on Hugging Face Spaces using the **Docker SDK**:
+- **Live Space URL**: [https://ansh123456789-ragingoa.hf.space](https://ansh123456789-ragingoa.hf.space)
+- **Space Repository**: [https://huggingface.co/spaces/ansh123456789/ragingoa](https://huggingface.co/spaces/ansh123456789/ragingoa)
+
+### 1. Space Hardware & Cold-Start Properties
+- **Hardware Profile**: Free `cpu-basic` (2 vCPU / 16 GB RAM).
+- **Cold-Start Platform Property**:
+  > [!NOTE]
+  > Free `cpu-basic` Spaces sleep after 48 hours of inactivity. The initial wake request will experience a **30–90 second platform container spin-up time**. This is an inherent infrastructure property of Hugging Face free tier, not a pipeline latency regression. Once warm, the in-memory retrieval pipeline responds in **~35 ms**.
+
+### 2. Environment Secrets Configuration
+In your Space dashboard under **Settings → Variables and Secrets**, configure:
+- `SARVAM_API_KEY`: Your Sarvam AI Saaras v3 API subscription key.
+- `LLM_API_KEY`: Your OpenAI/Groq API key for multi-source cross-lingual synthesis.
+- `LLM_BASE_URL`: API Base URL (e.g. `https://api.groq.com/openai/v1` or `https://api.openai.com/v1`).
+- `LLM_MODEL`: Model identifier (e.g. `llama-3.3-70b-versatile` or `gpt-4o-mini`).
+
+### 3. Reproducible Push-to-Space Steps
+```bash
+# 1. Add Hugging Face Space remote
+git remote add space https://huggingface.co/spaces/ansh123456789/ragingoa
+
+# 2. Push artifacts (Dockerfile, code, pre-built FAISS indexes) to Space
+git push space main
+```
+
+---
+
+## 🎯 Explicit Non-Goals & Architectural Boundaries
+1. **Sub-200ms Full Pipeline Claim**: We do NOT claim the full pipeline (STT + Retrieval + Hosted LLM) runs under 200ms. Hosted third-party STT and LLM generation have unavoidable external network latency floors. We hold the **in-memory retrieval stage (Embedding + FAISS HNSW + BM25 Rerank)** to the **~200ms target** (measured at **~35ms**), and report STT/LLM latencies separately and honestly.
+2. **No Shallow Demo Datasets**: We do NOT index only the passages tied to our demo queries. We index a broad, deduplicated multi-thousand passage corpus (148,000+ passages) with real distractor passages so retrieval is a genuine search.
+3. **No Heavy Framework Abstractions**: No LangChain or LlamaIndex. All orchestration is hand-rolled with typed Pydantic v2 schemas.
+4. **No Heavy NLI Grounding on Critical Path**: Overlap scoring is used for sub-millisecond hallucination checking. Full cross-encoder NLI entailment is documented as a future offline extension.
+5. **No Raw Datasets in Space Repo**: Raw multi-GB parquet files are excluded via `.gitignore` / `.dockerignore`. Only compiled, lightweight FAISS index artifacts are bundled into the deployment.
+
+---
+
 ## 📜 License
 MIT License. Built for **Hacker House Goa 2026**.
