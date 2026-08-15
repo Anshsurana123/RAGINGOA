@@ -117,12 +117,20 @@ OFF_TOPIC_DISTANCE_THRESHOLD = 0.18  # Calibrated for multilingual-e5-small norm
 GROUNDING_OVERLAP_THRESHOLD = 0.30
 
 # ==========================================
-# 7. LLM FALLBACK GENERATION CONFIG
+# 7. LLM MULTI-TIER PROVIDER & GENERATION CONFIG
 # ==========================================
+# Tier-1 Primary: Groq / OpenAI-compatible
 LLM_API_KEY = os.getenv("LLM_API_KEY", os.getenv("GROQ_API_KEY", ""))
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1" if os.getenv("GROQ_API_KEY") else "https://api.openai.com/v1")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile" if (os.getenv("GROQ_API_KEY") or "groq.com" in os.getenv("LLM_BASE_URL", "")) else "gpt-4o-mini")
 LLM_TIMEOUT_SECONDS = 15.0
+
+# Tier-2 & Tier-3 Backup: Cerebras High-Speed LPU
+CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", "")
+CEREBRAS_BASE_URL = os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.ai/v1")
+CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "gemma-4-31b")
+CEREBRAS_FALLBACK_MODEL = os.getenv("CEREBRAS_FALLBACK_MODEL", "gpt-oss-120b")
+CEREBRAS_TIMEOUT_SECONDS = 12.0
 
 # ==========================================
 # 8. SERVER CONFIGURATION

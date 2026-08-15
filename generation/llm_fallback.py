@@ -34,15 +34,19 @@ class LLMAdapter:
         self.model = model or config.LLM_MODEL
         self.timeout = timeout
 
-    def generate(self, prompt: str, context: str, target_lang: Optional[str] = None) -> str:
-        """
-        Generate synthesized response grounded strictly in provided context passages.
-        Supports cross-lingual multi-source synthesis (e.g. reading Hindi & Tamil context,
-        compiling and translating the answer into English or the requested target language).
-        """
-        if not self.api_key or not self.api_key.strip():
-            logger.info("No LLM_API_KEY configured. Using local deterministic multi-passage synthesis.")
-            return self._local_fallback_synthesize(prompt, context)
+    def _call_chat_endpoint(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        prompt: str,
+        context: str,
+        target_lang: Optional[str] = None,
+        timeout: float = 12.0,
+    ) -> Optional[str]:
+        """Helper to invoke any OpenAI-compatible chat completion endpoint."""
+        if not api_key or not api_key.strip():
+            return None
             
         lang_instruction = f"Respond in '{target_lang}'." if target_lang else "Respond in the same language as the user query."
         
@@ -59,9 +63,9 @@ class LLMAdapter:
         
         user_content = f"Multi-Language Context Passages:\n{context}\n\nUser Question: {prompt}\n\nCompiled Grounded Answer:"
         
-        endpoint = f"{self.base_url}/chat/completions"
+        endpoint = f"{base_url.rstrip('/')}/chat/completions"
         payload = {
-            "model": self.model,
+            "model": model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
@@ -73,36 +77,86 @@ class LLMAdapter:
         data = json.dumps(payload).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key.strip()}",
+            "Authorization": f"Bearer {api_key.strip()}",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) VoiceRAG/1.0",
         }
         
-        max_retries = 3
-        current_model = self.model
-        for attempt in range(1, max_retries + 1):
-            try:
-                payload["model"] = current_model
-                data = json.dumps(payload).encode("utf-8")
-                req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
-                with urllib.request.urlopen(req, timeout=self.timeout) as response:
-                    if response.status == 200:
-                        resp_body = json.loads(response.read().decode("utf-8"))
-                        answer = resp_body["choices"][0]["message"]["content"].strip()
-                        return answer
-                    else:
-                        logger.warning(f"LLM API attempt {attempt} returned HTTP {response.status}")
-            except Exception as e:
-                logger.warning(f"LLM API attempt {attempt}/{max_retries} failed on {current_model}: {e}")
-                # If 70B model hits rate limits on Groq, fallback to 8B instant model
-                if "429" in str(e) and "groq.com" in self.base_url:
-                    current_model = "llama-3.1-8b-instant"
-                if attempt < max_retries:
-                    import time
-                    time.sleep(0.3 * attempt)
-                else:
-                    logger.error(f"All {max_retries} LLM attempts exhausted. Recovering via local deterministic synthesis.")
-                    return self._local_fallback_synthesize(prompt, context)
-                    
+        try:
+            req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                if response.status == 200:
+                    resp_body = json.loads(response.read().decode("utf-8"))
+                    answer = resp_body["choices"][0]["message"]["content"].strip()
+                    return answer
+        except Exception as e:
+            logger.warning(f"Chat completion call to {base_url} ({model}) failed: {e}")
+            return None
+        return None
+
+    def generate(self, prompt: str, context: str, target_lang: Optional[str] = None) -> str:
+        """
+        Generate synthesized response grounded strictly in provided context passages.
+        Cascade Hierarchy:
+        1. Primary: Groq / Main LLM (e.g. llama-3.3-70b-versatile or llama-3.1-8b-instant)
+        2. Tier-2 Backup: Cerebras Gemma 4 31b (gemma-4-31b)
+        3. Tier-3 Backup: Cerebras GPT-OSS 120b (gpt-oss-120b)
+        4. Tier-4 Local: Deterministic multi-passage extractive fallback
+        """
+        # Tier 1: Primary LLM (Groq / OpenAI-compatible)
+        if self.api_key and self.api_key.strip():
+            # Try configured model (with instant 8B fallback on 429)
+            primary_models = [self.model]
+            if "groq.com" in self.base_url and self.model != "llama-3.1-8b-instant":
+                primary_models.append("llama-3.1-8b-instant")
+                
+            for m in primary_models:
+                res = self._call_chat_endpoint(
+                    base_url=self.base_url,
+                    api_key=self.api_key,
+                    model=m,
+                    prompt=prompt,
+                    context=context,
+                    target_lang=target_lang,
+                    timeout=self.timeout,
+                )
+                if res:
+                    logger.info(f"Answer synthesized via Primary LLM ({m})")
+                    return res
+
+        # Tier 2: Cerebras Backup with Gemma 4 31b
+        cerebras_key = config.CEREBRAS_API_KEY
+        if cerebras_key and cerebras_key.strip():
+            logger.info("Failing over to Tier-2 Backup: Cerebras (model: %s)", config.CEREBRAS_MODEL)
+            res = self._call_chat_endpoint(
+                base_url=config.CEREBRAS_BASE_URL,
+                api_key=cerebras_key,
+                model=config.CEREBRAS_MODEL,
+                prompt=prompt,
+                context=context,
+                target_lang=target_lang,
+                timeout=config.CEREBRAS_TIMEOUT_SECONDS,
+            )
+            if res:
+                logger.info("Answer synthesized via Cerebras (%s)", config.CEREBRAS_MODEL)
+                return res
+
+            # Tier 3: Cerebras Backup with GPT-OSS 120b
+            logger.info("Failing over to Tier-3 Backup: Cerebras (model: %s)", config.CEREBRAS_FALLBACK_MODEL)
+            res = self._call_chat_endpoint(
+                base_url=config.CEREBRAS_BASE_URL,
+                api_key=cerebras_key,
+                model=config.CEREBRAS_FALLBACK_MODEL,
+                prompt=prompt,
+                context=context,
+                target_lang=target_lang,
+                timeout=config.CEREBRAS_TIMEOUT_SECONDS,
+            )
+            if res:
+                logger.info("Answer synthesized via Cerebras (%s)", config.CEREBRAS_FALLBACK_MODEL)
+                return res
+
+        # Tier 4: Deterministic local extractive synthesis
+        logger.warning("All LLM providers exhausted. Recovering via local deterministic synthesis.")
         return self._local_fallback_synthesize(prompt, context)
 
     def _local_fallback_synthesize(self, prompt: str, context: str) -> str:

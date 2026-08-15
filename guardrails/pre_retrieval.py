@@ -97,13 +97,19 @@ def check_neural_safety(text: str) -> Tuple[bool, Optional[str]]:
     Evaluates complex semantic harm, prompt extraction, obfuscated attacks, and multilingual toxicity.
     """
     api_key = config.LLM_API_KEY
-    if not api_key:
-        return True, None
+    endpoints_to_try = []
+    if api_key and api_key.strip():
+        safety_model = "llama-3.1-8b-instant" if "groq.com" in config.LLM_BASE_URL else config.LLM_MODEL
+        endpoints_to_try.append((f"{config.LLM_BASE_URL.rstrip('/')}/chat/completions", api_key.strip(), safety_model))
         
-    endpoint = f"{config.LLM_BASE_URL.rstrip('/')}/chat/completions"
-    safety_model = "llama-3.1-8b-instant" if "groq.com" in config.LLM_BASE_URL else config.LLM_MODEL
+    if config.CEREBRAS_API_KEY and config.CEREBRAS_API_KEY.strip():
+        endpoints_to_try.append((f"{config.CEREBRAS_BASE_URL.rstrip('/')}/chat/completions", config.CEREBRAS_API_KEY.strip(), config.CEREBRAS_MODEL))
+        endpoints_to_try.append((f"{config.CEREBRAS_BASE_URL.rstrip('/')}/chat/completions", config.CEREBRAS_API_KEY.strip(), config.CEREBRAS_FALLBACK_MODEL))
+
+    if not endpoints_to_try:
+        return True, None
+
     payload = {
-        "model": safety_model,
         "messages": [
             {
                 "role": "system",
@@ -123,34 +129,28 @@ def check_neural_safety(text: str) -> Tuple[bool, Optional[str]]:
         "response_format": {"type": "json_object"},
         "max_tokens": 150
     }
-    
-    import json
-    import urllib.request
-    
-    data = json.dumps(payload).encode("utf-8")
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key.strip()}",
-        "User-Agent": "Mozilla/5.0 VoiceRAG/1.0"
-    }
-    max_retries = 2
-    for attempt in range(1, max_retries + 1):
+
+    for ep_url, ep_key, ep_model in endpoints_to_try:
+        payload["model"] = ep_model
+        data = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {ep_key}",
+            "User-Agent": "Mozilla/5.0 VoiceRAG/1.0"
+        }
         try:
-            req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
+            req = urllib.request.Request(ep_url, data=data, headers=headers, method="POST")
             with urllib.request.urlopen(req, timeout=3.0) as res:
                 raw = robust_json_parser(res.read().decode("utf-8"))
                 parsed = robust_json_parser(raw["choices"][0]["message"]["content"])
                 is_safe = parsed.get("is_safe", True)
                 if not is_safe:
                     reason = f"Blocked by Neural Guardrail: {parsed.get('reason', 'Harmful or hazardous content detected')}"
-                    logger.warning(f"Neural Safety Guardrail triggered: {reason}")
+                    logger.warning(f"Neural Safety Guardrail triggered on {ep_model}: {reason}")
                     return False, reason
                 return True, None
         except Exception as e:
-            logger.warning(f"Neural guardrail check attempt {attempt}/{max_retries} failed (malformed or timeout): {e}")
-            if attempt < max_retries:
-                import time
-                time.sleep(0.3)
+            logger.warning(f"Neural guardrail check failed on {ep_url} ({ep_model}): {e}")
             
     return True, None
 
