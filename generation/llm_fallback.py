@@ -63,6 +63,7 @@ class LLMAdapter:
         
         user_content = f"Multi-Language Context Passages:\n{context}\n\nUser Question: {prompt}\n\nCompiled Grounded Answer:"
         
+        max_tokens = 800 if ("glm" in model.lower() or "reason" in model.lower()) else 350
         endpoint = f"{base_url.rstrip('/')}/chat/completions"
         payload = {
             "model": model,
@@ -71,7 +72,7 @@ class LLMAdapter:
                 {"role": "user", "content": user_content},
             ],
             "temperature": 0.1,
-            "max_tokens": 350,
+            "max_tokens": max_tokens,
         }
         
         data = json.dumps(payload).encode("utf-8")
@@ -86,8 +87,9 @@ class LLMAdapter:
             with urllib.request.urlopen(req, timeout=timeout) as response:
                 if response.status == 200:
                     resp_body = json.loads(response.read().decode("utf-8"))
-                    answer = resp_body["choices"][0]["message"]["content"].strip()
-                    return answer
+                    msg = resp_body["choices"][0]["message"]
+                    answer = (msg.get("content") or msg.get("reasoning") or "").strip()
+                    return answer if answer else None
         except Exception as e:
             logger.warning(f"Chat completion call to {base_url} ({model}) failed: {e}")
             return None
