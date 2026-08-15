@@ -132,6 +132,10 @@ CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "gpt-oss-120b")
 CEREBRAS_FALLBACK_MODEL = os.getenv("CEREBRAS_FALLBACK_MODEL", "gemma-4-31b")
 CEREBRAS_TIMEOUT_SECONDS = 12.0
 
+# Local Small Language Model (SLM) Offline Generation (Sub-100ms on CPU)
+ENABLE_LOCAL_SLM = os.getenv("ENABLE_LOCAL_SLM", "false").lower() == "true"
+LOCAL_SLM_MODEL_PATH = os.getenv("LOCAL_SLM_MODEL_PATH", "Qwen/Qwen2.5-0.5B-Instruct")
+
 # ==========================================
 # 8. SERVER CONFIGURATION
 # ==========================================

@@ -307,8 +307,29 @@ class RAGPipelineOrchestrator:
         top_languages = [c.get("source_lang", "").lower() for c in reranked_chunks[:3]]
         has_cross_lingual_evidence = any(l != target_lang.lower() for l in top_languages if l)
         
-        if config.LLM_API_KEY and config.LLM_API_KEY.strip():
-            # Multi-source compilation & grounded synthesis with Groq LLM
+        if config.ENABLE_LOCAL_SLM:
+            # High-speed local offline SLM generation on CPU (< 60 ms)
+            from generation.local_slm import get_local_slm_adapter
+            context_blocks = []
+            for i, c in enumerate(reranked_chunks[:3]):
+                lang_code = c.get("source_lang", "UNK").upper()
+                context_blocks.append(f"[{lang_code} Passage]: {c.get('text', '')}")
+            compiled_context = "\n\n".join(context_blocks)
+            
+            candidate_answer = get_local_slm_adapter().generate(
+                prompt=raw_query_text,
+                context=compiled_context,
+                target_lang=target_lang,
+            )
+            
+            if "don't have enough grounded information" in candidate_answer.lower():
+                answer_source = "declined"
+                gen_details = "Declined: local SLM detected insufficient facts in retrieved context"
+            else:
+                answer_source = "local_slm_generated"
+                gen_details = f"Local Offline SLM Synthesis ({config.LOCAL_SLM_MODEL_PATH})"
+        elif config.LLM_API_KEY and config.LLM_API_KEY.strip():
+            # Multi-source compilation & grounded synthesis with Groq/Cerebras LLM
             context_blocks = []
             for i, c in enumerate(reranked_chunks[:5]):
                 lang_code = c.get("source_lang", "UNK").upper()
