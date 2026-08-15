@@ -3,9 +3,8 @@ title: Hacker House Goa 2026 - Voice Indic RAG
 emoji: 🌴
 colorFrom: green
 colorTo: yellow
-sdk: gradio
-sdk_version: 5.20.0
-app_file: app.py
+sdk: docker
+app_port: 7860
 pinned: false
 license: mit
 short_description: Instrumented, low-latency Voice RAG for Indic Languages
