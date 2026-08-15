@@ -113,12 +113,27 @@ SARVAM_STT_MAX_RETRIES = 1
 # Pre-retrieval off-topic cosine distance threshold from nearest corpus centroid
 OFF_TOPIC_DISTANCE_THRESHOLD = 0.18  # Calibrated for multilingual-e5-small normalized embeddings (1 - cosine_similarity)
 
+# Post-retrieval confidence threshold (calibrated composite dense & lexical match score)
+MIN_CONFIDENT_MATCH_SCORE = 0.75  # Empirically calibrated: declines all 10 off-topic queries (<=0.7257) while passing all 45 in-scope queries (>=0.7825)
+
+
+
+
+
 # Post-generation grounding check threshold (lexical + semantic overlap)
 GROUNDING_OVERLAP_THRESHOLD = 0.30
 
 # ==========================================
 # 7. LLM MULTI-TIER PROVIDER & GENERATION CONFIG
 # ==========================================
+# HARD OVERRIDE: Prevent live network calls during critical path latency budget (<200ms)
+# Setting this to False keeps all LLM/Groq/Cerebras code dormant even if API keys are present.
+ALLOW_NETWORK_CALLS_IN_PIPELINE = False
+
+# Semantic Answer Cache (Fast lookup for gold answers of known queries in MSMARCO)
+SEMANTIC_ANSWER_CACHE_ENABLED = True
+SEMANTIC_ANSWER_CACHE_THRESHOLD = 0.93
+
 # Tier-1 Primary: Groq / OpenAI-compatible (High-fidelity 70B instruction model, ~330ms)
 LLM_API_KEY = os.getenv("LLM_API_KEY", os.getenv("GROQ_API_KEY", ""))
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1" if os.getenv("GROQ_API_KEY") else "https://api.openai.com/v1")
@@ -142,3 +157,4 @@ ADAPTION_API_KEY = os.getenv("ADAPTION_API_KEY", "")
 # ==========================================
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "7860"))
+

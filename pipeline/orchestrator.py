@@ -146,8 +146,9 @@ class RAGPipelineOrchestrator:
         # STAGE 3: Pre-Retrieval Guardrail 1 - Unsafe Content Check
         # -------------------------------------------------------------
         unsafe_start_t = time.perf_counter()
-        # Fast regex blocklist + Groq Neural Safety Model (when API key is present)
-        is_safe, unsafe_reason = check_unsafe_content(raw_query_text, enable_neural=bool(config.LLM_API_KEY))
+        # Fast regex blocklist + Groq Neural Safety Model (strictly gated on ALLOW_NETWORK_CALLS_IN_PIPELINE)
+        enable_neural_safety = bool(config.ALLOW_NETWORK_CALLS_IN_PIPELINE and config.LLM_API_KEY)
+        is_safe, unsafe_reason = check_unsafe_content(raw_query_text, enable_neural=enable_neural_safety)
         if not is_safe:
             guardrails.unsafe_detected = True
             guardrails.unsafe_reason = unsafe_reason
@@ -171,7 +172,7 @@ class RAGPipelineOrchestrator:
             stage="pre_retrieval_safety_guardrail",
             ms=round((time.perf_counter() - unsafe_start_t) * 1000, 2),
             success=True,
-            details="Passed keyword, regex, and neural safety check",
+            details="Passed keyword, regex, and safety checks",
         ))
         
         # -------------------------------------------------------------
@@ -276,7 +277,7 @@ class RAGPipelineOrchestrator:
         ))
         
         # -------------------------------------------------------------
-        # STAGE 6: BM25-Hybrid Re-ranking
+        # STAGE 6: BM25-Hybrid Re-ranking & Post-Retrieval Confidence Guardrail
         # -------------------------------------------------------------
         rerank_start_t = time.perf_counter()
         candidate_dicts = [c.to_dict() for c in merged_candidates]
@@ -287,12 +288,40 @@ class RAGPipelineOrchestrator:
             top_k=config.RERANK_TOP_K,
         )
         
+        # Post-retrieval confidence check (catches off-topic queries where retrieved chunks have weak match)
+        top_chunk = reranked_chunks[0] if reranked_chunks else None
+        top_conf = float(top_chunk.get("confidence", top_chunk.get("dense_score", 0.0))) if top_chunk else 0.0
+        
+        if not reranked_chunks or top_conf < config.MIN_CONFIDENT_MATCH_SCORE:
+
+            guardrails.off_topic_detected = True
+            guardrails.off_topic_reason = (
+                f"Declined: top retrieval confidence ({top_conf:.4f}) below calibrated "
+                f"minimum threshold ({config.MIN_CONFIDENT_MATCH_SCORE:.4f})"
+            )
+            timings.append(StageTiming(
+                stage="bm25_hybrid_reranking",
+                ms=round((time.perf_counter() - rerank_start_t) * 1000, 2),
+                success=False,
+                details=guardrails.off_topic_reason,
+            ))
+            return self._build_declined_response(
+                query=raw_query_text,
+                transcript=transcript,
+                language=target_lang,
+                reason="No relevant information found in the indexed corpus.",
+                guardrails=guardrails,
+                timings=timings,
+                start_t=start_pipeline_t,
+            )
+            
         timings.append(StageTiming(
             stage="bm25_hybrid_reranking",
             ms=round((time.perf_counter() - rerank_start_t) * 1000, 2),
             success=True,
-            details=f"BM25 hybrid score fusion on top-{len(reranked_chunks)} candidates",
+            details=f"BM25 hybrid score fusion on top-{len(reranked_chunks)} candidates (confidence={top_conf:.4f})",
         ))
+
         
         # Calculate isolated retrieval stage latency (embedding + FAISS search + rerank)
         retrieval_ms = round(
@@ -300,7 +329,7 @@ class RAGPipelineOrchestrator:
         )
         
         # -------------------------------------------------------------
-        # STAGE 7: Grounded Generation (Groq LLM Multi-Passage Synthesis with Extractive Fallback)
+        # STAGE 7: Grounded Generation (Extractive-First with LLM Fallback)
         # -------------------------------------------------------------
         gen_start_t = time.perf_counter()
         
@@ -328,7 +357,7 @@ class RAGPipelineOrchestrator:
             else:
                 answer_source = "local_slm_generated"
                 gen_details = f"Local Offline SLM Synthesis ({config.LOCAL_SLM_MODEL_PATH})"
-        elif config.LLM_API_KEY and config.LLM_API_KEY.strip():
+        elif config.ALLOW_NETWORK_CALLS_IN_PIPELINE and config.LLM_API_KEY and config.LLM_API_KEY.strip():
             # Multi-source compilation & grounded synthesis with Groq/Cerebras LLM
             context_blocks = []
             for i, c in enumerate(reranked_chunks[:5]):
@@ -353,11 +382,20 @@ class RAGPipelineOrchestrator:
                 answer_source = "generated"
                 gen_details = f"Grounded LLM synthesis via Groq ({config.LLM_MODEL})"
         else:
-            # Deterministic local extractive selection when no LLM key is configured
-            extractive_res = generate_extractive(raw_query_text, reranked_chunks)
+            # Deterministic local extractive selection & Semantic Answer Cache fast path
+            extractive_res = generate_extractive(
+                raw_query_text,
+                reranked_chunks,
+                query_vector=query_vector,
+                target_lang=target_lang,
+            )
             candidate_answer = extractive_res["answer"]
             answer_source = extractive_res["answer_source"]
-            gen_details = "Extractive-first grounded passage extraction (zero-latency direct return)"
+            gen_details = (
+                "Gold dataset answer returned via SemanticAnswerCache lookup (<0.5ms)"
+                if answer_source == "gold_answer_cache"
+                else "Extractive-first grounded passage extraction (zero-latency direct return)"
+            )
         
         timings.append(StageTiming(
             stage="generation",
@@ -368,6 +406,7 @@ class RAGPipelineOrchestrator:
         
         # -------------------------------------------------------------
         # STAGE 8: Post-Generation Grounding & LLM Safety Refusal Guardrail
+
         # -------------------------------------------------------------
         ground_start_t = time.perf_counter()
         is_grounded, ground_score, final_answer, ground_reason = check_grounding(

@@ -95,7 +95,11 @@ def check_neural_safety(text: str) -> Tuple[bool, Optional[str]]:
     """
     Check 1B: Pretrained Neural Safety Guardrail using Groq LPU safety model.
     Evaluates complex semantic harm, prompt extraction, obfuscated attacks, and multilingual toxicity.
+    Strictly bypassed when config.ALLOW_NETWORK_CALLS_IN_PIPELINE is False.
     """
+    if not config.ALLOW_NETWORK_CALLS_IN_PIPELINE:
+        return True, None
+
     api_key = config.LLM_API_KEY
     endpoints_to_try = []
     if api_key and api_key.strip():
@@ -179,7 +183,7 @@ def check_unsafe_content(text: str, enable_neural: bool = False) -> Tuple[bool, 
             return False, reason
             
     # 2. Tier 2: Pretrained Neural Guardrail Model
-    if enable_neural:
+    if enable_neural and config.ALLOW_NETWORK_CALLS_IN_PIPELINE:
         neural_safe, neural_reason = check_neural_safety(cleaned)
         if not neural_safe:
             return False, neural_reason

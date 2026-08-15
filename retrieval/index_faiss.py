@@ -94,9 +94,10 @@ class StrategyVectorIndex:
         if query_vec.ndim == 1:
             query_vec = np.expand_dims(query_vec, axis=0)
             
-        # Query FAISS HNSW (request more candidates if language filter is active)
-        search_k = min(self.index.ntotal, top_k * 5 if target_lang else top_k)
+        # Query FAISS HNSW (request sufficient candidates for language filtering & cross-lingual coverage)
+        search_k = min(self.index.ntotal, max(500, top_k * 25) if target_lang else max(60, top_k * 4))
         scores, indices = self.index.search(query_vec, search_k)
+
         
         results: List[Dict[str, Any]] = []
         target_lang_clean = target_lang.lower().strip() if target_lang else None
@@ -298,26 +299,42 @@ class IndexManager:
         logger.info(f"Saved corpus centroids to {centroid_file}")
 
     def load_all_indexes(self):
-        """Loads all existing strategy indexes and centroids from disk into memory."""
+        """Loads all existing strategy indexes and centroids from disk into memory with auto-rebuild fallback."""
+        loaded_ok = True
         for strategy in ["passage_native", "semantic_longdoc"]:
             try:
                 idx = StrategyVectorIndex.load(self.index_dir, strategy)
+                if idx.index.ntotal == 0:
+                    raise ValueError(f"Index '{strategy}' has 0 vectors.")
                 self.indexes[strategy] = idx
             except Exception as e:
                 logger.warning(f"Could not load index '{strategy}': {e}")
+                loaded_ok = False
                 
         # Load centroids
         centroid_file = self.index_dir / "centroids.json"
         if centroid_file.exists():
-            with open(centroid_file, "r", encoding="utf-8") as f:
-                c_data = json.load(f)
-            for k, v in c_data.items():
-                arr = np.array(v, dtype=np.float32)
-                if k == "global":
-                    self.global_centroid = arr
-                else:
-                    self.centroids[k] = arr
-            logger.info(f"Loaded centroids for: {list(self.centroids.keys())}")
+            try:
+                with open(centroid_file, "r", encoding="utf-8") as f:
+                    c_data = json.load(f)
+                for k, v in c_data.items():
+                    arr = np.array(v, dtype=np.float32)
+                    if k == "global":
+                        self.global_centroid = arr
+                    else:
+                        self.centroids[k] = arr
+                logger.info(f"Loaded centroids for: {list(self.centroids.keys())}")
+            except Exception as e:
+                logger.warning(f"Failed loading centroids: {e}")
+                loaded_ok = False
+        else:
+            loaded_ok = False
+
+        # Self-healing fallback: If primary indexes or centroids are missing/empty, build fresh!
+        if not loaded_ok or "passage_native" not in self.indexes or self.indexes["passage_native"].index.ntotal == 0:
+            logger.info("[IndexManager] Auto-recovering: Building all FAISS indexes and centroids fresh from corpus...")
+            self.build_all_indexes(max_passages_per_lang=700)
+
 
 
 _INDEX_MANAGER: Optional[IndexManager] = None

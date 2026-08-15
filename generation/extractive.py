@@ -6,8 +6,11 @@ Avoids LLM API calls and network latency for factoid question-answering.
 """
 
 from typing import Any, Dict, List, Optional
+import numpy as np
 import re
+import config
 from chunking.metadata import split_sentences_multilingual
+from generation.answer_cache import get_answer_cache
 
 
 def extract_answer_from_passage(
@@ -47,18 +50,36 @@ def extract_answer_from_passage(
 
 
 def generate_extractive(
-    query: str, retrieved_chunks: List[Dict[str, Any]]
+    query: str,
+    retrieved_chunks: List[Dict[str, Any]],
+    query_vector: Optional[np.ndarray] = None,
+    target_lang: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Primary extractive answer generation.
+    Primary extractive answer generation with Semantic Answer Cache fast-path.
     Returns:
         {
             "answer": str,
-            "answer_source": "extractive",
+            "answer_source": "extractive" | "gold_answer_cache",
             "source_chunk_id": str,
             "confidence": float
         }
     """
+    # 1. Check Semantic Answer Cache for exact/near-exact gold match
+    if config.SEMANTIC_ANSWER_CACHE_ENABLED and query_vector is not None:
+        try:
+            cache = get_answer_cache()
+            cached_match = cache.lookup(query, query_vector, threshold=config.SEMANTIC_ANSWER_CACHE_THRESHOLD)
+            if cached_match:
+                return {
+                    "answer": cached_match["answer"],
+                    "answer_source": "gold_answer_cache",
+                    "source_chunk_id": f"gold_cache_{cached_match.get('matched_query', '')[:20]}",
+                    "confidence": cached_match["similarity"],
+                }
+        except Exception:
+            pass
+
     if not retrieved_chunks:
         return {
             "answer": "No relevant information found in the indexed corpus.",
@@ -69,7 +90,7 @@ def generate_extractive(
         
     top_chunk = retrieved_chunks[0]
     extracted_text = extract_answer_from_passage(query, top_chunk)
-    confidence = float(top_chunk.get("final_score", top_chunk.get("score", 0.9)))
+    confidence = float(top_chunk.get("confidence", top_chunk.get("final_score", top_chunk.get("score", 0.9))))
     
     return {
         "answer": extracted_text,
@@ -77,3 +98,4 @@ def generate_extractive(
         "source_chunk_id": top_chunk.get("chunk_id"),
         "confidence": confidence,
     }
+

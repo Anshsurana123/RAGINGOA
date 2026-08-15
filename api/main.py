@@ -31,7 +31,7 @@ from retrieval.index_faiss import get_index_manager
 async def lifespan(app: FastAPI):
     """
     Lifespan event handler: Preload embedding models and FAISS indexes ONCE at startup.
-    Never re-loads per request.
+    Never re-loads per request. Self-heals if indexes are missing or empty.
     """
     print("[API Lifespan] Initializing and pre-loading embedding model...")
     embedder = get_embedder()
@@ -39,8 +39,12 @@ async def lifespan(app: FastAPI):
     print("[API Lifespan] Loading FAISS HNSW indexes and corpus centroids into memory...")
     index_mgr = get_index_manager()
     
+    # Ensure indexes are populated
+    for name, idx in index_mgr.indexes.items():
+        print(f"[API Lifespan] Index '{name}': {idx.index.ntotal} vectors loaded.")
+        
     print(f"[API Lifespan] Initialized successfully. Active languages: {config.LANGUAGES}")
-    print(f"[API Lifespan] Loaded indexes: {list(index_mgr.indexes.keys())}")
+    print(f"[API Lifespan] Allow Network Calls Switch: {config.ALLOW_NETWORK_CALLS_IN_PIPELINE}")
     
     yield
     
@@ -77,8 +81,10 @@ async def health_check() -> Dict[str, Any]:
         "embedding_model": config.EMBEDDING_MODEL_NAME,
         "indexes_loaded": index_stats,
         "centroids_available": list(index_mgr.centroids.keys()),
+        "allow_network_calls": config.ALLOW_NETWORK_CALLS_IN_PIPELINE,
         "sarvam_stt_configured": bool(config.SARVAM_API_KEY),
-        "llm_fallback_configured": bool(config.LLM_API_KEY),
+        "llm_fallback_configured": bool(config.LLM_API_KEY and config.ALLOW_NETWORK_CALLS_IN_PIPELINE),
+        "semantic_answer_cache_configured": config.SEMANTIC_ANSWER_CACHE_ENABLED,
     }
 
 

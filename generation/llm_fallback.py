@@ -104,6 +104,9 @@ class LLMAdapter:
         3. Tier-3 Backup: Cerebras GPT-OSS 120b (gpt-oss-120b)
         4. Tier-4 Local: Deterministic multi-passage extractive fallback
         """
+        if not config.ALLOW_NETWORK_CALLS_IN_PIPELINE:
+            return self._local_fallback_synthesize(prompt, context)
+
         # Tier 1: Primary LLM (Groq / OpenAI-compatible)
         if self.api_key and self.api_key.strip():
             # Try configured model (with instant 8B fallback on 429)
