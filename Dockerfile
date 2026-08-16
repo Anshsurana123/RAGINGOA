@@ -28,7 +28,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Pre-cache embedding model weights into Docker image at build time
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-small')"
+RUN python -c "from transformers import AutoTokenizer, AutoModel; AutoTokenizer.from_pretrained('intfloat/multilingual-e5-small'); AutoModel.from_pretrained('intfloat/multilingual-e5-small')"
 
 # Copy application source code and pre-built index/processed artifacts
 COPY config.py .
