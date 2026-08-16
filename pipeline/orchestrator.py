@@ -28,7 +28,7 @@ from retrieval.embed import get_embedder
 from retrieval.index_faiss import get_index_manager
 from retrieval.rerank import rerank_bm25_hybrid, rerank_cross_encoder, get_cross_encoder
 from chunking.hybrid_merge import merge_and_fuse_candidates
-from guardrails.pre_retrieval import check_unsafe_content, check_off_topic_query
+from guardrails.pre_retrieval import check_unsafe_content, check_off_topic_query, check_query_intent
 from guardrails.prompt_guard import get_prompt_guard_detector
 from guardrails.post_generation import check_grounding, DECLINED_RESPONSE_TEMPLATE
 from generation.extractive import generate_extractive
@@ -56,6 +56,8 @@ class RAGPipelineOrchestrator:
     async def execute(self, request: QueryRequest) -> QueryResponse:
         """
         Executes end-to-end stage graph with comprehensive timing instrumentation.
+        Offloads CPU-bound steps (embeddings, FAISS, reranking, context guard, generation)
+        to worker threads via asyncio.to_thread to maintain an unblocked event loop.
         """
         start_pipeline_t = time.perf_counter()
         timings: List[StageTiming] = []
@@ -75,8 +77,10 @@ class RAGPipelineOrchestrator:
                 stt_res = None
                 for attempt in range(config.SARVAM_STT_MAX_RETRIES + 1):
                     try:
-                        stt_res = self.stt_client.transcribe(
-                            audio_path=request.audio_path, language_code=language
+                        stt_res = await asyncio.to_thread(
+                            self.stt_client.transcribe,
+                            audio_path=request.audio_path,
+                            language_code=language,
                         )
                         break
                     except Exception as stt_err:
@@ -104,6 +108,7 @@ class RAGPipelineOrchestrator:
                     fallback_used=True,
                     details=f"STT Error: {str(e)}",
                 ))
+                guardrails.decline_reason_code = "STT_ERROR"
                 return self._build_declined_response(
                     query=raw_query_text,
                     transcript=transcript,
@@ -125,6 +130,7 @@ class RAGPipelineOrchestrator:
             ))
             
         if not raw_query_text:
+            guardrails.decline_reason_code = "EMPTY_QUERY"
             return self._build_declined_response(
                 query="",
                 transcript="",
@@ -153,7 +159,8 @@ class RAGPipelineOrchestrator:
         unsafe_start_t = time.perf_counter()
         # Fast regex blocklist + Meta Prompt-Guard-86M local ONNX discriminator (<10ms offline)
         enable_neural_safety = bool(config.ALLOW_NETWORK_CALLS_IN_PIPELINE and config.LLM_API_KEY)
-        is_safe, unsafe_reason = check_unsafe_content(
+        is_safe, unsafe_reason = await asyncio.to_thread(
+            check_unsafe_content,
             raw_query_text,
             enable_neural=enable_neural_safety,
             enable_prompt_guard=config.ENABLE_PROMPT_GUARD,
@@ -161,6 +168,7 @@ class RAGPipelineOrchestrator:
         if not is_safe:
             guardrails.unsafe_detected = True
             guardrails.unsafe_reason = unsafe_reason
+            guardrails.decline_reason_code = "UNSAFE_CONTENT"
             timings.append(StageTiming(
                 stage="pre_retrieval_safety_guardrail",
                 ms=round((time.perf_counter() - unsafe_start_t) * 1000, 2),
@@ -183,13 +191,46 @@ class RAGPipelineOrchestrator:
             success=True,
             details="Passed Tier-1 Heuristics & Tier-2 Prompt-Guard-86M checks",
         ))
+
+        # -------------------------------------------------------------
+        # STAGE 3.5: Pre-Retrieval Guardrail 1.5 - Query Intent Classification
+        # -------------------------------------------------------------
+        if getattr(config, "ENABLE_QUERY_INTENT_FILTER", True):
+            intent_start_t = time.perf_counter()
+            is_factual, intent_type, intent_reason = check_query_intent(raw_query_text)
+            if not is_factual:
+                guardrails.intent_detected = True
+                guardrails.intent_type = intent_type
+                guardrails.intent_reason = intent_reason
+                guardrails.decline_reason_code = "INTENT_OUT_OF_SCOPE"
+                timings.append(StageTiming(
+                    stage="pre_retrieval_intent_guardrail",
+                    ms=round((time.perf_counter() - intent_start_t) * 1000, 2),
+                    success=False,
+                    details=intent_reason,
+                ))
+                return self._build_declined_response(
+                    query=raw_query_text,
+                    transcript=transcript,
+                    language=target_lang,
+                    reason=intent_reason or f"Request classified as '{intent_type}', outside factual knowledge scope.",
+                    guardrails=guardrails,
+                    timings=timings,
+                    start_t=start_pipeline_t,
+                )
+            timings.append(StageTiming(
+                stage="pre_retrieval_intent_guardrail",
+                ms=round((time.perf_counter() - intent_start_t) * 1000, 2),
+                success=True,
+                details="Passed pre-retrieval intent classification",
+            ))
         
         # -------------------------------------------------------------
         # STAGE 4: Query Embedding & Pre-Retrieval Guardrail 2 - Off-Topic Check
         # -------------------------------------------------------------
         embed_start_t = time.perf_counter()
         # MUST use 'query: ' prefix for retrieval query embedding
-        query_vector = self.embedder.encode_queries(raw_query_text)
+        query_vector = await asyncio.to_thread(self.embedder.encode_queries, raw_query_text)
         embed_ms = round((time.perf_counter() - embed_start_t) * 1000, 2)
         
         offtopic_start_t = time.perf_counter()
@@ -205,6 +246,7 @@ class RAGPipelineOrchestrator:
         if not is_on_topic:
             guardrails.off_topic_detected = True
             guardrails.off_topic_reason = off_topic_reason
+            guardrails.decline_reason_code = "OFF_TOPIC_CENTROID"
             timings.append(StageTiming(
                 stage="query_embedding",
                 ms=embed_ms,
@@ -322,23 +364,27 @@ class RAGPipelineOrchestrator:
         # STAGE 5: Multi-Strategy FAISS Retrieval & Cross-Lingual Federation
         # -------------------------------------------------------------
         retrieval_start_t = time.perf_counter()
-        strategy_results: Dict[str, List[Dict[str, Any]]] = {}
         
         # When cross_lingual is enabled, search across all indexed language partitions
         search_lang = None if request.cross_lingual else target_lang
         
-        # Execute search over passage-native and semantic-longdoc indexes
-        for strat_name, strat_idx in self.index_manager.indexes.items():
-            results = strat_idx.search(
-                query_vec=query_vector,
-                target_lang=search_lang,
-                top_k=config.FAISS_TOP_K,
-            )
-            strategy_results[strat_name] = results
+        # Offload multi-index search and candidate merge to worker thread
+        def _search_and_merge(q_vec, s_lang):
+            strat_results: Dict[str, List[Dict[str, Any]]] = {}
+            for strat_name, strat_idx in self.index_manager.indexes.items():
+                strat_results[strat_name] = strat_idx.search(
+                    query_vec=q_vec,
+                    target_lang=s_lang,
+                    top_k=config.FAISS_TOP_K,
+                )
+            return merge_and_fuse_candidates(strat_results)
             
-        merged_candidates = merge_and_fuse_candidates(strategy_results)
+        merged_candidates = await asyncio.to_thread(_search_and_merge, query_vector, search_lang)
         
         if not merged_candidates:
+            guardrails.off_topic_detected = True
+            guardrails.off_topic_reason = "No matching passages found in FAISS indexes"
+            guardrails.decline_reason_code = "LOW_RETRIEVAL_CONFIDENCE"
             timings.append(StageTiming(
                 stage="vector_retrieval_and_merge",
                 ms=round((time.perf_counter() - retrieval_start_t) * 1000, 2),
@@ -368,22 +414,23 @@ class RAGPipelineOrchestrator:
         # -------------------------------------------------------------
         rerank_start_t = time.perf_counter()
         candidate_dicts = [c.to_dict() for c in merged_candidates]
-        bm25_reranked = rerank_bm25_hybrid(
-            query_text=raw_query_text,
-            candidates=candidate_dicts,
-            bm25_weight=config.HYBRID_BM25_WEIGHT,
-            top_k=config.RERANK_TOP_K,
-        )
         
-        # Cross-Encoder deep cross-attention re-ranking on top candidates (if enabled)
-        if getattr(config, "ENABLE_CROSS_ENCODER", False):
-            reranked_chunks = rerank_cross_encoder(
-                query_text=raw_query_text,
-                candidates=bm25_reranked,
-                top_k=config.CROSS_ENCODER_TOP_K,
+        def _rerank_candidates(q_text, c_dicts):
+            bm25_res = rerank_bm25_hybrid(
+                query_text=q_text,
+                candidates=c_dicts,
+                bm25_weight=config.HYBRID_BM25_WEIGHT,
+                top_k=config.RERANK_TOP_K,
             )
-        else:
-            reranked_chunks = bm25_reranked
+            if getattr(config, "ENABLE_CROSS_ENCODER", False):
+                return rerank_cross_encoder(
+                    query_text=q_text,
+                    candidates=bm25_res,
+                    top_k=config.CROSS_ENCODER_TOP_K,
+                )
+            return bm25_res
+
+        reranked_chunks = await asyncio.to_thread(_rerank_candidates, raw_query_text, candidate_dicts)
             
         # Post-retrieval confidence & cross-encoder relevance check
         top_chunk = reranked_chunks[0] if reranked_chunks else None
@@ -413,6 +460,7 @@ class RAGPipelineOrchestrator:
         if is_disqualified:
             guardrails.off_topic_detected = True
             guardrails.off_topic_reason = disqualify_reason
+            guardrails.decline_reason_code = "LOW_RETRIEVAL_CONFIDENCE"
             timings.append(StageTiming(
                 stage="bm25_cross_encoder_reranking",
                 ms=round((time.perf_counter() - rerank_start_t) * 1000, 2),
@@ -448,7 +496,9 @@ class RAGPipelineOrchestrator:
         if getattr(config, "ENABLE_CONTEXT_CHUNK_SCAN", True):
             ctx_guard_start_t = time.perf_counter()
             pg_detector = get_prompt_guard_detector()
-            clean_chunks, dropped_chunks = pg_detector.scan_context_chunks(reranked_chunks)
+            clean_chunks, dropped_chunks = await asyncio.to_thread(
+                pg_detector.scan_context_chunks, reranked_chunks
+            )
             ctx_guard_ms = round((time.perf_counter() - ctx_guard_start_t) * 1000, 2)
             
             if dropped_chunks:
@@ -457,6 +507,7 @@ class RAGPipelineOrchestrator:
             if not clean_chunks:
                 guardrails.unsafe_detected = True
                 guardrails.unsafe_reason = "Retrieved candidate passages contained indirect prompt injection payloads."
+                guardrails.decline_reason_code = "UNSAFE_CONTENT"
                 timings.append(StageTiming(
                     stage="context_chunk_safety_guardrail",
                     ms=ctx_guard_ms,
@@ -503,7 +554,9 @@ class RAGPipelineOrchestrator:
                 context_blocks.append(f"[{lang_code} Passage]: {c.get('text', '')}")
             compiled_context = "\n\n".join(context_blocks)
             
-            candidate_answer = get_local_slm_adapter().generate(
+            slm_adapter = get_local_slm_adapter()
+            candidate_answer = await asyncio.to_thread(
+                slm_adapter.generate,
                 prompt=raw_query_text,
                 context=compiled_context,
                 target_lang=target_lang,
@@ -524,7 +577,8 @@ class RAGPipelineOrchestrator:
                 context_blocks.append(f"[{lang_code} Source #{i+1} ({strat})]:\n{c.get('text', '')}")
             compiled_context = "\n\n".join(context_blocks)
             
-            candidate_answer = self.llm_adapter.generate(
+            candidate_answer = await asyncio.to_thread(
+                self.llm_adapter.generate,
                 prompt=raw_query_text,
                 context=compiled_context,
                 target_lang=target_lang,
@@ -541,7 +595,8 @@ class RAGPipelineOrchestrator:
                 gen_details = f"Grounded LLM synthesis via Groq ({config.LLM_MODEL})"
         else:
             # Deterministic local extractive selection & Semantic Answer Cache fast path
-            extractive_res = generate_extractive(
+            extractive_res = await asyncio.to_thread(
+                generate_extractive,
                 raw_query_text,
                 reranked_chunks,
                 query_vector=query_vector,
@@ -565,10 +620,10 @@ class RAGPipelineOrchestrator:
         
         # -------------------------------------------------------------
         # STAGE 8: Post-Generation Grounding & LLM Safety Refusal Guardrail
-
         # -------------------------------------------------------------
         ground_start_t = time.perf_counter()
-        is_grounded, ground_score, final_answer, ground_reason = check_grounding(
+        is_grounded, ground_score, final_answer, ground_reason = await asyncio.to_thread(
+            check_grounding,
             answer=candidate_answer,
             retrieved_chunks=reranked_chunks,
             threshold=config.GROUNDING_OVERLAP_THRESHOLD,
@@ -582,8 +637,10 @@ class RAGPipelineOrchestrator:
         if ground_reason and "Blocked:" in ground_reason:
             guardrails.unsafe_detected = True
             guardrails.unsafe_reason = ground_reason
+            guardrails.decline_reason_code = "UNSAFE_CONTENT"
             answer_source = "declined"
         elif not is_grounded:
+            guardrails.decline_reason_code = "UNGROUNDED_ANSWER"
             answer_source = "declined"
             
         timings.append(StageTiming(
@@ -736,11 +793,8 @@ class RAGPipelineOrchestrator:
                 bypass_cache=True,
             )
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(self.execute(mock_req))
-                else:
-                    loop.run_until_complete(self.execute(mock_req))
+                loop = asyncio.get_running_loop()
+                asyncio.create_task(self.execute(mock_req))
             except RuntimeError:
                 asyncio.run(self.execute(mock_req))
             

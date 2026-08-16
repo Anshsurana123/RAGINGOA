@@ -8,6 +8,8 @@ Endpoints:
 - GET /: Web Demo UI.
 """
 
+import asyncio
+import logging
 import os
 import shutil
 import tempfile
@@ -26,11 +28,14 @@ from pipeline.schemas import QueryRequest, QueryResponse
 from retrieval.embed import get_embedder
 from retrieval.index_faiss import get_index_manager
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Lifespan event handler: Preload embedding models and FAISS indexes ONCE at startup.
+    Lifespan event handler: Preload embedding models, FAISS indexes, and
+    eagerly initialize and warm up the full RAG pipeline orchestrator ONCE at startup.
     Never re-loads per request. Self-heals if indexes are missing or empty.
     """
     print("[API Lifespan] Initializing and pre-loading embedding model...")
@@ -43,8 +48,13 @@ async def lifespan(app: FastAPI):
     for name, idx in index_mgr.indexes.items():
         print(f"[API Lifespan] Index '{name}': {idx.index.ntotal} vectors loaded.")
         
+    print("[API Lifespan] Eagerly initializing and warming up RAG orchestrator & ONNX models...")
+    orchestrator = get_orchestrator()
+    print("[API Lifespan] RAG orchestrator warmup complete.")
+    
     print(f"[API Lifespan] Initialized successfully. Active languages: {config.LANGUAGES}")
     print(f"[API Lifespan] Allow Network Calls Switch: {config.ALLOW_NETWORK_CALLS_IN_PIPELINE}")
+    print(f"[API Lifespan] Request Timeout Deadline: {config.REQUEST_TIMEOUT_SECONDS}s")
     
     yield
     
@@ -85,6 +95,8 @@ async def health_check() -> Dict[str, Any]:
         "sarvam_stt_configured": bool(config.SARVAM_API_KEY),
         "llm_fallback_configured": bool(config.LLM_API_KEY and config.ALLOW_NETWORK_CALLS_IN_PIPELINE),
         "semantic_answer_cache_configured": config.SEMANTIC_ANSWER_CACHE_ENABLED,
+        "request_timeout_seconds": config.REQUEST_TIMEOUT_SECONDS,
+        "query_intent_filter_enabled": config.ENABLE_QUERY_INTENT_FILTER,
     }
 
 
@@ -109,7 +121,7 @@ async def query_pipeline(
     request_body: Optional[QueryRequest] = None,
 ) -> QueryResponse:
     """
-    Execute end-to-end Voice RAG query.
+    Execute end-to-end Voice RAG query with strict deadline timeout protection.
     Accepts:
     1. Multipart file upload ('file') with optional 'language_hint' and 'cross_lingual'
     2. Multipart form text ('text') with optional 'language_hint' and 'cross_lingual'
@@ -119,12 +131,15 @@ async def query_pipeline(
     temp_audio_path = None
     
     try:
+        # Build query request object
+        req: Optional[QueryRequest] = None
+        
         # 1. Handle JSON request body
         if request_body and (request_body.text or request_body.audio_path):
-            return await orchestrator.execute(request_body)
+            req = request_body
             
         # 2. Handle Multipart audio upload
-        if file and file.filename:
+        elif file and file.filename:
             suffix = Path(file.filename).suffix or ".wav"
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                 shutil.copyfileobj(file.file, tmp)
@@ -135,22 +150,36 @@ async def query_pipeline(
                 language_hint=language_hint,
                 cross_lingual=False if cross_lingual is None else cross_lingual,
             )
-            response = await orchestrator.execute(req)
-            return response
             
         # 3. Handle Multipart Form text bypass
-        if text and text.strip():
+        elif text and text.strip():
             req = QueryRequest(
                 text=text.strip(),
                 language_hint=language_hint,
                 cross_lingual=False if cross_lingual is None else cross_lingual,
             )
-            return await orchestrator.execute(req)
             
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Either 'file' audio upload or 'text' query must be provided.",
-        )
+        if not req:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Either 'file' audio upload or 'text' query must be provided.",
+            )
+
+        # Enforce request deadline with asyncio.wait_for
+        try:
+            return await asyncio.wait_for(
+                orchestrator.execute(req),
+                timeout=config.REQUEST_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            logger.error(
+                f"Query execution exceeded request deadline timeout ({config.REQUEST_TIMEOUT_SECONDS}s)"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail=f"Request execution exceeded {config.REQUEST_TIMEOUT_SECONDS}s deadline.",
+            )
+            
     finally:
         # Clean up temporary audio file if created
         if temp_audio_path and os.path.exists(temp_audio_path):

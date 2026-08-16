@@ -87,6 +87,15 @@ UNSAFE_PATTERNS = [
     
     # Cyberattacks / Illegal Exploits
     r"(?i)\b(how\s+to\s+)?(hack|ddos\s+attack|bypass\s+security|steal\s+passwords|malware\s+source\s+code|ransomware\s+attack|exploit\s+vulnerability)\b",
+    r"(?i)\b(credential\s+stuffing|session\s+hijacking|cookie\s+theft|steal\s+2fa|steal\s+session\s+(token|cookie)s?|keylogger\s+(script|code|tutorial)|account\s+takeover\s+tutorial)\b",
+
+    # Stalking / Covert Tracking / Spyware / Non-Consensual Surveillance (English)
+    r"(?i)\b(how\s+to\s+)?(stalk|covertly\s+track|secretly\s+track|spy\s+on|surveil|monitor|wiretap|eavesdrop\s+on)\s+(someone|my\s+ex|my\s+partner|my\s+spouse|my\s+wife|my\s+husband|a\s+person|somebody|people|her|him|their\s+phone|their\s+location)\b",
+    r"(?i)\b(install\s+(stalkware|spyware|keylogger)|covert\s+(gps\s*tracker|airtag\s*tracking)|track\s+(someone|somebody|a\s+person|my\s+ex)\s+without\s+(them\s+knowing|their\s+consent|permission))\b",
+
+    # Evading Law Enforcement / Fleeing Arrest / Tampering with Evidence (English)
+    r"(?i)\b(how\s+to\s+)?(evade|flee|escape|dodge|run\s+from|outrun|hide\s+from|elude)\s+(the\s+)?(police|cops|law\s+enforcement|fbi|authorities|arrest|patrol)\b",
+    r"(?i)\b(evad(e|ing)\s+arrest|flee(ing)?\s+the\s+scene|tamper\s+with\s+evidence|destroy\s+crime\s+scene\s+evidence|hide\s+from\s+the\s+police)\b",
 
     # Theft / Fraud / Scams / Financial Crimes (English)
     r"(?i)\b(how\s+to\s+)?(steal|rob|shoplift|pickpocket|burglarize|loot)\s+(a\s+)?(car|money|bank|store|shop|wallet|phone|identity|credit\s*card|vehicle)\b",
@@ -382,3 +391,72 @@ def check_off_topic_query(
         return False, min_dist, reason
         
     return True, min_dist, None
+
+
+# -------------------------------------------------------------
+# Pre-Retrieval Query Intent Patterns (Non-Factual Task Filter)
+# -------------------------------------------------------------
+INTENT_PATTERNS = {
+    "creative_writing": [
+        r"(?i)\b(write|compose|generate|create|draft|produce|craft)\s+(me\s+)?(a\s+|an\s+|some\s+)?([\w-]+\s+){0,3}(poem|poetry|story|song|lyrics|essay|haiku|rhyme|rap|script|novel|joke|limerick|fable|screenplay)\b",
+        r"(?i)\b(could\s+you|can\s+you|please)\s+(write|compose|generate|draft)\s+(me\s+)?(a\s+|an\s+)?([\w-]+\s+){0,2}(poem|story|song|essay|haiku|joke|rhyme|script)\b",
+        r"(?i)\b(i('d|\s+would)\s+(love|like)\s+(something\s+poetic|a\s+poem|a\s+story|a\s+song)\s+about)\b",
+        r"(?i)(कविता\s*(लिखो|लिखिए|सुनाओ|बनाओ|लिहा|करा|सांगा)|कहानी\s*(लिखो|सुनाओ|बनाओ)|गोष्ट\s*(सांगा|लिहा)|गाना\s*(लिखो|बनाओ)|गाणे\s*(लिहा|बनवा)|शायरी\s*(सुनाओ|लिखो))",
+    ],
+    "personal_advice": [
+        r"(?i)\b(give\s+me\s+advice|advise\s+me|what('s|\s+is)\s+your\s+advice)\s+(on|about|for)\s+(my\s+)?([\w-]+\s+){0,3}(life|relationship|marriage|dating|career|finances|breakup|divorce|future)\b",
+        r"(?i)\b(should\s+i|what\s+should\s+i\s+do)\b.*?\b(quit\s+my\s+job|break\s+up|divorce|marry|confront|confess|tell\s+my\s+boss|leave\s+my)\b",
+        r"(?i)\b(help\s+me\s+decide\s+(whether|if)\s+(i\s+should|to))\b",
+        r"(?i)(मुझे\s+(सलाह|मशविरा)\s+(दो|दीजिए)|क्या\s+मुझे\s+(नौकरी\s+छोड़|ब्रेकअप|शादी\s+करनी)|मला\s+(सल्ला|मार्गदर्शन)\s+(द्या|करा)|मी\s+(नोकरी\s+सोडू|लग्न\s+करू))",
+    ],
+    "planning_task": [
+        r"(?i)\b(plan|organize|create|make|design|draft|help\s+me\s+plan)\s+(me\s+)?(a\s+|an\s+|my\s+)?([\w-]+\s+){0,3}(itinerary|vacation|trip|holiday|workout|fitness|diet|meal\s*plan|schedule|daily\s*routine)\b",
+        r"(?i)\b(help\s+me\s+plan\s+(my\s+)?(trip|vacation|itinerary|workout|diet|day|schedule))\b",
+        r"(?i)(यात्रा\s*(की\s+योजना|प्लान\s*करो|बनाओ)|डाइट\s*प्लान\s*(बनाओ|दीजिए)|वर्कआउट\s*प्लान|प्रवासाचे\s*नियोजन\s*(करा|सांगा)|डाएट\s*प्लॅन\s*करा|कसरत\s*प्लॅन)",
+    ],
+    "roleplay_chat": [
+        r"(?i)\b(pretend|act|roleplay)\s+(as|like|to\s+be)\s+(a\s+|an\s+|my\s+)?([\w-]+\s+){0,2}(friend|girlfriend|boyfriend|therapist|character|celebrity|assistant|doctor|bot|human|ai)\b",
+        r"(?i)\b(talk\s+to\s+me|chat\s+with\s+me)\s+(as\s+if|like\s+you('re|\s+are))\b",
+        r"(?i)\b(tell\s+me\s+a\s+(funny\s+)?joke)\b",
+        r"(?i)(एक\s+मजेदार\s+चुटकुला\s+सुनाओ|मुझसे\s+बातें\s+करो|दोस्त\s+की\s+तरह\s+बात\s+करो|एक\s+विनोद\s+सांगा|माझ्याशी\s+गप्पा\s+मारा)",
+    ],
+    "naming_brainstorming": [
+        r"(?i)\b(suggest|recommend|give\s+me|brainstorm|find)\s+(some\s+)?([\w-]+\s+){0,2}(name\s+ideas?|names?|naming\s+ideas?|ideas)\s+(for\s+)?(my\s+|a\s+|an\s+)?([\w-]+\s+){0,3}(dog|puppy|cat|kitten|pet|baby|child|business|brand|startup|company|product|shop|app|store)\b",
+        r"(?i)\b(help\s+me\s+)?name\s+(my|a|an)\s+([\w-]+\s+){0,3}(dog|puppy|cat|kitten|pet|baby|child|business|company|startup|shop|app|store)\b",
+        r"(?i)((कुत्ते|बिल्ली|बच्चे|दुकान|कंपनी)\s+का\s+(नाम\s+सुझाओ|नामकरण|नाम\s+बताओ)|(कुत्रा|मांजर|बाळ|व्यवसाय|कंपनी)\s+चे\s+(नाव\s+सुचवा|नाव\s+सांगा)|नाम\s+सुझाओ|नाव\s+सुचवा)",
+    ],
+}
+
+COMPILED_INTENT_REGEXES = {
+    intent: [re.compile(p, re.UNICODE) for p in patterns]
+    for intent, patterns in INTENT_PATTERNS.items()
+}
+
+
+def check_query_intent(query_text: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    """
+    Check 1.5: Pre-retrieval Query Intent Classifier (<0.05ms regex gate).
+    Filters out non-factual task requests (creative writing, personal advice,
+    open-ended planning, roleplay, and naming brainstorming) before heavy retrieval.
+    
+    Returns:
+        (is_factual, intent_type, reason)
+    """
+    if not query_text or not query_text.strip():
+        return True, None, None
+        
+    cleaned = query_text.strip()
+    
+    for intent_type, regexes in COMPILED_INTENT_REGEXES.items():
+        for rx in regexes:
+            match = rx.search(cleaned)
+            if match:
+                matched_phrase = match.group(0)
+                reason = (
+                    f"Declined: Query classified as '{intent_type}' intent ('{matched_phrase}'), "
+                    f"which is outside the scope of factual knowledge retrieval."
+                )
+                logger.info(f"Query intent gate triggered: {reason}")
+                return False, intent_type, reason
+                
+    return True, None, None

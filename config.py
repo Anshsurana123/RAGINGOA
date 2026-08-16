@@ -163,6 +163,9 @@ PROMPT_GUARD_THRESHOLD = float(os.getenv("PROMPT_GUARD_THRESHOLD", "0.5"))
 PROMPT_GUARD_TEMPERATURE = float(os.getenv("PROMPT_GUARD_TEMPERATURE", "1.0"))
 ENABLE_CONTEXT_CHUNK_SCAN = os.getenv("ENABLE_CONTEXT_CHUNK_SCAN", "true").lower() == "true"
 
+# Pre-retrieval Query Intent Guardrail (Filters creative writing, personal advice, planning, roleplay)
+ENABLE_QUERY_INTENT_FILTER = os.getenv("ENABLE_QUERY_INTENT_FILTER", "true").lower() == "true"
+
 # ==========================================
 # 7. LLM MULTI-TIER PROVIDER & GENERATION CONFIG
 # ==========================================
@@ -202,4 +205,5 @@ ADAPTION_API_KEY = os.getenv("ADAPTION_API_KEY", "")
 # ==========================================
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "7860"))
+REQUEST_TIMEOUT_SECONDS = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "15.0"))
 

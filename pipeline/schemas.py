@@ -32,12 +32,16 @@ class GuardrailFlags(BaseModel):
     """Structured audit log for all pre- and post-retrieval guardrail checks."""
     unsafe_detected: bool = False
     unsafe_reason: Optional[str] = None
+    intent_detected: bool = False
+    intent_type: Optional[str] = None
+    intent_reason: Optional[str] = None
     off_topic_detected: bool = False
     off_topic_distance: Optional[float] = None
     off_topic_reason: Optional[str] = None
     grounding_passed: bool = True
     grounding_score: Optional[float] = None
     grounding_reason: Optional[str] = None
+    decline_reason_code: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return self.model_dump()
