@@ -16,17 +16,20 @@ _CROSS_ENCODER_INSTANCE = None
 
 class ONNXCrossEncoderRanker:
     """
-    ONNX Runtime accelerated CrossEncoder for ms-marco-MiniLM-L-6-v2.
-    Computes cross-attention scoring on (query, passage) pairs in sub-15ms on CPU.
+    ONNX Runtime accelerated CrossEncoder for multilingual cross-encoders.
+    Supports dynamic inputs (e.g. models with or without token_type_ids).
+    Computes cross-attention scoring on (query, passage) pairs in sub-25ms on CPU.
     """
     def __init__(self, model_name: str = config.CROSS_ENCODER_MODEL_NAME):
         self.model_name = model_name
         self.onnx_dir = Path(getattr(config, "ONNX_MODELS_DIR", config.DATA_DIR / "onnx_models"))
         self.onnx_dir.mkdir(parents=True, exist_ok=True)
-        self.onnx_path = self.onnx_dir / "ce_minilm.onnx"
+        sanitized_name = re.sub(r'[^a-zA-Z0-9_]', '_', model_name)
+        self.onnx_path = self.onnx_dir / f"ce_{sanitized_name}.onnx"
         
         from transformers import AutoTokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.has_token_type_ids = "token_type_ids" in (self.tokenizer.model_input_names or [])
         
         # Ensure ONNX model exists
         self._ensure_onnx_model()
@@ -44,12 +47,7 @@ class ONNXCrossEncoderRanker:
         
         # Warmup ONNX inference graph to avoid cold-start JIT latency
         try:
-            dummy_in = self.tokenizer(["warmup query"], ["warmup passage"], padding=True, return_tensors="np")
-            self.session.run(None, {
-                "input_ids": dummy_in["input_ids"].astype(np.int64),
-                "attention_mask": dummy_in["attention_mask"].astype(np.int64),
-                "token_type_ids": dummy_in["token_type_ids"].astype(np.int64),
-            })
+            self.score_pairs("warmup query", ["warmup passage"], max_length=64)
         except Exception:
             pass
         logger.info("ONNX CrossEncoder session initialized and warmed up successfully.")
@@ -59,21 +57,26 @@ class ONNXCrossEncoderRanker:
         if self.onnx_path.exists():
             return
             
-        logger.info("Exporting CrossEncoder to ONNX format...")
+        logger.info(f"Exporting CrossEncoder '{self.model_name}' to ONNX format at {self.onnx_path}...")
         import torch.nn as nn
         from transformers import AutoModelForSequenceClassification
         from torch.export import Dim
         
+        has_tt = self.has_token_type_ids
+        
         class CEWrapper(nn.Module):
-            def __init__(self, m):
+            def __init__(self, m, use_tt):
                 super().__init__()
                 self.m = m
-            def forward(self, input_ids, attention_mask, token_type_ids):
-                return self.m(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, return_dict=False)[0]
+                self.use_tt = use_tt
+            def forward(self, input_ids, attention_mask, token_type_ids=None):
+                if self.use_tt and token_type_ids is not None:
+                    return self.m(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, return_dict=False)[0]
+                return self.m(input_ids=input_ids, attention_mask=attention_mask, return_dict=False)[0]
 
         base_model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
         base_model.eval()
-        wrapper = CEWrapper(base_model)
+        wrapper = CEWrapper(base_model, has_tt)
         wrapper.eval()
         
         b = Dim("batch")
@@ -81,23 +84,44 @@ class ONNXCrossEncoderRanker:
         dummy = self.tokenizer(["query 1", "query 2"], ["passage 1", "passage 2"], padding=True, return_tensors="pt")
         
         try:
-            torch.onnx.export(
-                wrapper,
-                (dummy["input_ids"], dummy["attention_mask"], dummy["token_type_ids"]),
-                str(self.onnx_path),
-                input_names=["input_ids", "attention_mask", "token_type_ids"],
-                output_names=["logits"],
-                dynamic_shapes={
-                    "input_ids": {0: b, 1: s},
-                    "attention_mask": {0: b, 1: s},
-                    "token_type_ids": {0: b, 1: s},
-                },
-                opset_version=18,
-                do_constant_folding=True,
-            )
+            if has_tt and "token_type_ids" in dummy:
+                torch.onnx.export(
+                    wrapper,
+                    (dummy["input_ids"], dummy["attention_mask"], dummy["token_type_ids"]),
+                    str(self.onnx_path),
+                    input_names=["input_ids", "attention_mask", "token_type_ids"],
+                    output_names=["logits"],
+                    dynamic_shapes={
+                        "input_ids": {0: b, 1: s},
+                        "attention_mask": {0: b, 1: s},
+                        "token_type_ids": {0: b, 1: s},
+                    },
+                    opset_version=18,
+                    do_constant_folding=True,
+                )
+            else:
+                torch.onnx.export(
+                    wrapper,
+                    (dummy["input_ids"], dummy["attention_mask"]),
+                    str(self.onnx_path),
+                    input_names=["input_ids", "attention_mask"],
+                    output_names=["logits"],
+                    dynamic_shapes={
+                        "input_ids": {0: b, 1: s},
+                        "attention_mask": {0: b, 1: s},
+                    },
+                    opset_version=18,
+                    do_constant_folding=True,
+                )
             logger.info("Exported ONNX CrossEncoder model.")
         except Exception as e:
             logger.warning(f"ONNX CrossEncoder export failed: {e}. PyTorch fallback will be used.")
+            if self.onnx_path.exists():
+                try:
+                    self.onnx_path.unlink()
+                except Exception:
+                    pass
+            raise e
 
     def score_pairs(self, query: str, passages: List[str], max_length: int = 80) -> np.ndarray:
         """
@@ -119,8 +143,10 @@ class ONNXCrossEncoderRanker:
         ort_inputs = {
             "input_ids": inputs["input_ids"].astype(np.int64),
             "attention_mask": inputs["attention_mask"].astype(np.int64),
-            "token_type_ids": inputs["token_type_ids"].astype(np.int64),
         }
+        if self.has_token_type_ids and "token_type_ids" in inputs:
+            ort_inputs["token_type_ids"] = inputs["token_type_ids"].astype(np.int64)
+            
         logits = self.session.run(None, ort_inputs)[0]
         return np.asarray(logits.flatten(), dtype=np.float32)
 
@@ -366,8 +392,11 @@ def rerank_cross_encoder(
             raw_ce = float(ce_scores[idx]) if idx < len(ce_scores) else -10.0
             c["cross_encoder_score"] = round(raw_ce, 4)
             
-            # Sigmoid normalize cross-encoder logits (typically -11 to +11 for ms-marco-MiniLM)
-            sig_ce = 1.0 / (1.0 + np.exp(-raw_ce))
+            # Normalize cross-encoder output (handle both pre-calibrated [0, 1] probabilities and unbounded logits)
+            if 0.0 <= raw_ce <= 1.0:
+                sig_ce = raw_ce
+            else:
+                sig_ce = 1.0 / (1.0 + np.exp(-raw_ce))
             c["ce_prob"] = round(float(sig_ce), 4)
             
             # Recalibrate composite confidence blending cross-encoder with dense score

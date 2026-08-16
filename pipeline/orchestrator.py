@@ -388,6 +388,7 @@ class RAGPipelineOrchestrator:
         # Post-retrieval confidence & cross-encoder relevance check
         top_chunk = reranked_chunks[0] if reranked_chunks else None
         top_conf = float(top_chunk.get("confidence", top_chunk.get("dense_score", 0.0))) if top_chunk else 0.0
+        top_ce_prob = float(top_chunk.get("ce_prob", 0.5)) if top_chunk and "ce_prob" in top_chunk else None
         top_ce_score = float(top_chunk.get("cross_encoder_score", 0.0)) if top_chunk and "cross_encoder_score" in top_chunk else None
         
         is_disqualified = False
@@ -396,10 +397,10 @@ class RAGPipelineOrchestrator:
         if not reranked_chunks:
             is_disqualified = True
             disqualify_reason = "Declined: no candidate passages available"
-        elif top_ce_score is not None and top_ce_score < getattr(config, "CROSS_ENCODER_THRESHOLD", -0.5):
+        elif top_ce_prob is not None and top_ce_prob < getattr(config, "CROSS_ENCODER_THRESHOLD", 0.15):
             is_disqualified = True
             disqualify_reason = (
-                f"Declined: top cross-encoder relevance ({top_ce_score:.4f}) below threshold "
+                f"Declined: top cross-encoder relevance probability ({top_ce_prob:.4f}) below threshold "
                 f"({config.CROSS_ENCODER_THRESHOLD:.4f})"
             )
         elif top_conf < config.MIN_CONFIDENT_MATCH_SCORE:
@@ -789,8 +790,9 @@ _ORCHESTRATOR_INSTANCE: Optional[RAGPipelineOrchestrator] = None
 
 
 def get_orchestrator() -> RAGPipelineOrchestrator:
-    """Singleton getter for RAGPipelineOrchestrator."""
+    """Singleton getter for RAGPipelineOrchestrator with eager warmup."""
     global _ORCHESTRATOR_INSTANCE
     if _ORCHESTRATOR_INSTANCE is None:
         _ORCHESTRATOR_INSTANCE = RAGPipelineOrchestrator()
+        _ORCHESTRATOR_INSTANCE.warmup_pipeline()
     return _ORCHESTRATOR_INSTANCE

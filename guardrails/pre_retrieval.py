@@ -69,7 +69,7 @@ def normalize_and_unpack_text(text: str) -> List[str]:
     return candidates
 
 # Comprehensive multilingual unsafe / inappropriate keyword and regex patterns
-# Covers profanity, hate speech, self-harm, violent extremism, weapons, and jailbreak attacks
+# Covers profanity, hate speech, self-harm, violent extremism, weapons, theft, fraud, cyber exploitation, and jailbreak attacks
 UNSAFE_PATTERNS = [
     # Jailbreak / Prompt Injection / System Prompt Extraction patterns
     r"(?i)\b(ignore\s+(all\s+)?(previous\s+)?(instructions|rules|prompts|directions))\b",
@@ -87,39 +87,67 @@ UNSAFE_PATTERNS = [
     
     # Cyberattacks / Illegal Exploits
     r"(?i)\b(how\s+to\s+)?(hack|ddos\s+attack|bypass\s+security|steal\s+passwords|malware\s+source\s+code|ransomware\s+attack|exploit\s+vulnerability)\b",
+
+    # Theft / Fraud / Scams / Financial Crimes (English)
+    r"(?i)\b(how\s+to\s+)?(steal|rob|shoplift|pickpocket|burglarize|loot)\s+(a\s+)?(car|money|bank|store|shop|wallet|phone|identity|credit\s*card|vehicle)\b",
+    r"(?i)\b(how\s+to\s+)?(commit\s+fraud|scam\s+people|clone\s+credit\s*cards?|skim\s+atm|fake\s+(kyc|id|passport|documents?)|money\s*launder(ing)?|wire\s*fraud|ponzi\s*scheme)\b",
+    r"(?i)\b(hack\s+(a\s+)?(bank\s*account|crypto\s*wallet|paypal|user\s*account)|phishing\s*scam|carding\s*tutorial)\b",
     
-    # Indic Safety Patterns (Hindi / Marathi / Nepali Devanagari)
+    # Indic Safety Patterns (Hindi - Weapons, Harm, Theft, Fraud)
     r"(?i)(बम\s*(बनाने|बनाना|तैयार)|विस्फोटक|हथियार\s*(बना|तैयार)|ज़हर\s*बना|आत्महत्या|फांसी\s*लगा|कत्ल\s*कर|जान\s*से\s*मार|आतंकवादी\s*हमला|देशद्रोह)",
+    r"(?i)(चोरी\s*(करना|कैसे\s*करें|की\s*योजना)|डकैती|धोखाधड़ी\s*करना|ठगी\s*करना|बैंक\s*खाता\s*हैक|क्रेडिट\s*कार्ड\s*क्लोनिंग|नकली\s*(नोट|दस्तावेज़)|घोटाला\s*करना|पैसे\s*लूटना)",
     
-    # Indic Safety Patterns (Tamil)
+    # Indic Safety Patterns (Marathi - Verified Distinct Terminology)
+    r"(?i)(बाँब\s*(बनवणे|तयार\s*करणे)|स्फोटके|शस्त्रे\s*बनवणे|विषप्रयोग|आत्महत्या\s*करणे|फाशी\s*घेणे|खून\s*करणे|जीव\s*घेणे|दहशतवादी\s*हल्ला|देशद्रोह)",
+    r"(?i)(चोरी\s*(करणे|कशी\s*करावी)|दरोडा\s*टाकणे|फसवणूक\s*करणे|ठकबाजी|बँक\s*खाते\s*हॅक|बनावट\s*(कागदपत्रे|नोट)|घोटाळा\s*करणे|पैसे\s*लुटणे)",
+
+    # Indic Safety Patterns (Nepali - Verified Distinct Terminology)
+    r"(?i)(बम\s*(बनाउने|तयार\s*पार्ने)|विस्फोटक|हतियार\s*बनाउने|विष\s*बनाउने|आत्महत्या\s*गर्ने|झुण्डिएर\s*मर्ने|हत्या\s*गर्ने|ज्यान\s*मार्ने|आतंकवादी\s*आक्रमण|देशद्रोह)",
+    r"(?i)(चोरी\s*(गर्ने|कसरी\s*गर्ने)|डकैती\s*गर्ने|ठगी\s*गर्ने|जालसाजी\s*गर्ने|बैंक\s*खाता\s*ह्याक|नक्कली\s*(कागजात|नोट)|घोटाला\s*गर्ने|पैसा\s*लुट्ने)",
+
+    # Indic Safety Patterns (Sanskrit - Verified Classical Terminology)
+    r"(?i)(विस्फोटक|शस्त्रनिर्माण|विषनिर्माण|आत्महत्या|नरहत्या|आतङ्कवादी|प्राणहरण)",
+    r"(?i)(चौर्य|स्तेय|वञ्चना|प्रतारणा|कूटप्रयोग|कोषहरण|धनहरण|अनधिकृतप्रवेश)",
+
+    # Indic Safety Patterns (Tamil - Weapons, Harm, Theft, Fraud)
     r"(?i)(குண்டு\s*(தயாரி|செய்வது)|வெடிகுண்டு|ஆயுதம்\s*செய்|விஷம்\s*தயாரி|தற்கொலை|கொலை\s*செய்|பயங்கரவாத\s*தாக்குதல்)",
-    
-    # Indic Safety Patterns (Bengali / Assamese)
-    r"(?i)(বোমা\s*(তৈরি|বানানো)|বিস্ফোরক|অস্ত্র\s*তৈরি|বিষ\s*তৈরি|আত্মহত্যা|হত্যা\s*করা|সন্ত্রাসবাদী|বম\s*বনোৱা)",
-    
-    # Indic Safety Patterns (Gujarati)
-    r"(?i)(બોમ્બ\s*(બનાવવો|બનાવવાની)|વિસ્ફોટક|હથિયાર\s*બનાવવા|ઝેર\s*બનાવવું|આત્મહત્યા|હત્યા|આતંકવાદી)",
-    
-    # Indic Safety Patterns (Kannada)
-    r"(?i)(ಬಾಂಬ್\s*(ತಯಾರಿಸುವುದು|ಮಾಡುವುದು)|ಸ್ಫೋಟಕ|ಶಸ್ತ್ರಾಸ್ತ್ರ|ವಿಷ\s*ತಯಾರಿಸುವುದು|ಆತ್ಮಹತ್ಯೆ|ಕೊಲೆ|ಭಯೋತ್ಪಾದಕ)",
-    
-    # Indic Safety Patterns (Malayalam)
-    r"(?i)(ബോംബ്\s*(നിർമ്മാണം|ഉണ്ടാക്കാൻ)|സ്ഫോടകവസ്തുക്കൾ|ആയുധം|വിഷം\s*നിർമ്മിക്കാൻ|ആത്മഹത്യ|കൊലപാതകം)",
-    
-    # Indic Safety Patterns (Odia)
-    r"(?i)(ବୋମା\s*(ତିଆରି|ବନାଇବା)|ବିସ୍ଫୋରକ|ଅସ୍ତ୍ରଶସ୍ତ୍ର|ବିଷ\s*ତିଆରି|ଆତ୍ମହତ୍ୟା|ହତ୍ୟା|ଆତଙ୍କବାଦୀ)",
-    
-    # Indic Safety Patterns (Punjabi)
-    r"(?i)(ਬੰਬ\s*(ਬਣਾਉਣਾ|ਤਿਆਰ)|ਧਮਾਕਾਖੇਜ਼|ਹਥਿਆਰ\s*ਬਣਾਉਣਾ|ਜ਼ਹਿਰ|ਖੁਦਕੁਸ਼ੀ|ਕਤਲ|ਅੱਤਵਾਦੀ)",
-    
-    # Indic Safety Patterns (Telugu)
+    r"(?i)(திருட்டு\s*(செய்வது|எப்படி)|கொள்ளை\s*அடிப்பது|மோசடி\s*செய்வது|ஏமாற்றுவது|வங்கி\s*கணக்கு\s*ஹேக்|போலி\s*(ஆவணங்கள்|பணம்)|பண\s*மோசடி)",
+
+    # Indic Safety Patterns (Telugu - Weapons, Harm, Theft, Fraud)
     r"(?i)(బాంబు\s*(తయారీ|చేయడం)|పేలుడు|ఆయుధం|విషం\s*తయారీ|ఆత్మహత్య|హత్య|తీవ్రవాద)",
-    
-    # Indic Safety Patterns (Urdu)
+    r"(?i)(దొంగతనం\s*(చేయడం|ఎలా)|దోపిడీ|మోసం\s*చేయడం|బ్యాంక్\s*ఖాతా\s*హ్యాకింగ్|క్రెడిట్\s*కార్డు\s*క్లోనింగ్|నకిలీ\s*(నోట్లు|పత్రాలు)|కుంభకోణం|డబ్బు\s*దోచుకోవడం)",
+
+    # Indic Safety Patterns (Bengali - Weapons, Harm, Theft, Fraud)
+    r"(?i)(বোমা\s*(তৈরি|বানানো)|বিস্ফোরক|অস্ত্র\s*তৈরি|বিষ\s*তৈরি|আত্মহত্যা|হত্যা\s*করা|সন্ত্রাসবাদী)",
+    r"(?i)(চুরি\s*(করা|কীভাবে)|ডাকাতি|প্রতারণা\s*করা|জালিয়াতি|ব্যাংক\s*অ্যাকাউন্ট\s*হ্যাক|জাল\s*(নোট|নথিপত্র)|কেলেঙ্কারি|টাকা\s*লুট)",
+
+    # Indic Safety Patterns (Assamese - Verified Distinct Terminology)
+    r"(?i)(বম\s*(বনোৱা|তৈয়াৰ)|বিস্ফোৰক|অস্ত্ৰ\s*তৈয়াৰ|বিষ\s*তৈয়াৰ|আত্মহত্যা|হত্যা\s*কৰা|সন্ত্ৰাসবাদী)",
+    r"(?i)(চুৰি\s*(কৰা|কেনেকৈ)|ডকাইতি|প্ৰৱঞ্চনা\s*কৰা|জালিয়াতি|বেংক\s*একাউণ্ট\s*হেক|নকলী\s*(নোট|নথিপত্ৰ)|কেলেংকাৰী|টকা\s*লুট)",
+
+    # Indic Safety Patterns (Gujarati - Weapons, Harm, Theft, Fraud)
+    r"(?i)(બોમ્બ\s*(બનાવવો|બનાવવાની)|વિસ્ફોટક|હથિયાર\s*બનાવવા|ઝેર\s*બનાવવું|આત્મહત્યા|હત્યા|આતંકવાદી)",
+    r"(?i)(ચોરી\s*(કરવી|કેવી\s*રીતે)|લૂંટ|છેતરપિંડી\s*કરવી|ઠગાઈ|બેંક\s*ખાતું\s*હેક|નકલી\s*(નોટો|દસ્તાવેજ)|કૌભાંડ|પૈસા\s*લૂંટવા)",
+
+    # Indic Safety Patterns (Kannada - Weapons, Harm, Theft, Fraud)
+    r"(?i)(ಬಾಂಬ್\s*(ತಯಾರಿಸುವುದು|ಮಾಡುವುದು)|ಸ್ಫೋಟಕ|ಶಸ್ತ್ರಾಸ್ತ್ರ|ವಿಷ\s*ತಯಾರಿಸುವುದು|ಆತ್ಮಹತ್ಯೆ|ಕೊಲೆ|ಭಯೋತ್ಪಾದಕ)",
+    r"(?i)(ಕಳ್ಳತನ\s*(ಮಾಡುವುದು|ಹೇಗೆ)|ದರೋಡೆ|ವಂಚನೆ\s*ಮಾಡುವುದು|ಮೋಸ|ಬ್ಯಾಂಕ್\s*ಖಾತೆ\s*ಹ್ಯಾಕ್|ನಕಲಿ\s*(ನೋಟುಗಳು|ದಾಖಲೆಗಳು)|ಹಗರಣ|ಹಣ\s*ದೋಚುವುದು)",
+
+    # Indic Safety Patterns (Malayalam - Weapons, Harm, Theft, Fraud)
+    r"(?i)(ബോംബ്\s*(നിർമ്മാണം|ഉണ്ടാക്കാൻ)|സ്ഫോടകവസ്തുക്കൾ|ആയുധം|വിഷം\s*നിർമ്മിക്കാൻ|ആത്മഹത്യ|കൊലപാതകം|ഭീകരവാദ)",
+    r"(?i)(മോഷണം\s*(നടത്താൻ|എങ്ങനെ)|കൊള്ള|തട്ടിപ്പ്\s*നടത്താൻ|വഞ്ചന|ബാങ്ക്\s*അക്കൗണ്ട്\s*ഹാക്കിംഗ്|വ്യാജ\s*(രേഖകൾ|കറൻസി)|സാമ്പത്തിക\s*തട്ടിപ്പ്)",
+
+    # Indic Safety Patterns (Odia - Weapons, Harm, Theft, Fraud)
+    r"(?i)(ବୋମା\s*(ତିଆରି|ବନାଇବା)|ବିସ୍ଫୋରକ|ଅସ୍ତ୍ରଶସ୍ତ୍ର|ବିଷ\s*ତିଆରି|ଆତ୍ମହତ୍ୟା|ହତ୍ୟା|ଆତଙ୍କବାଦୀ)",
+    r"(?i)(ଚୋରି\s*(କରିବା|କିପରି)|ଡକାୟତି|ଠକାମି\s*କରିବା|ପ୍ରତାରଣା|ବ୍ୟାଙ୍କ\s*ଖାତା\s*ହ୍ୟାକ୍|ନକଲି\s*(ନୋଟ୍|କାଗଜପତ୍ର)|ଦୁର୍ନୀତି|ଟଙ୍କା\s*ଲୁଟ୍)",
+
+    # Indic Safety Patterns (Punjabi - Weapons, Harm, Theft, Fraud)
+    r"(?i)(ਬੰਬ\s*(ਬਣਾਉਣਾ|ਤਿਆਰ)|ਧਮਾਕਾਖੇਜ਼|ਹਥਿਆਰ\s*ਬਣਾਉਣਾ|ਜ਼ਹਿਰ|ਖੁਦਕੁਸ਼ੀ|ਕਤਲ|ਅੱਤਵਾਦੀ)",
+    r"(?i)(ਚੋਰੀ\s*(ਕਰਨੀ|ਕਿਵੇਂ)|ਡਕੈਤੀ|ਧੋਖਾਧੜੀ\s*ਕਰਨੀ|ਠੱਗੀ|ਬੈਂਕ\s*ਖਾਤਾ\s*ਹੈਕ|ਜਾਅਲੀ\s*(ਨੋਟ|ਦਸਤਾਵੇਜ਼)|ਘੁਟਾਲਾ|ਪੈਸੇ\s*ਲੁੱਟਣਾ)",
+
+    # Indic Safety Patterns (Urdu - Weapons, Harm, Theft, Fraud)
     r"(?i)(بم\s*(بنانا|بنانے)|دھماکہ|ہتھیار|زہر|خودکشی|قتل|دہشت\s*گرد)",
-    
-    # Indic Safety Patterns (Sanskrit)
-    r"(?i)(विस्फोटक|शस्त्रनिर्माण|विषनिर्माण|आत्महत्या|नरहत्या|आतङ्कवादी)",
+    r"(?i)(چوری\s*(کرنا|کیسے)|ڈکیتی|دھوکہ\s*دہی|فراڈ\s*کرنا|بینک\s*اکاؤنٹ\s*ہیک|جعلی\s*(نوٹ|دستاویزات)|گھپلا|پیسے\s*لوٹنا)",
 ]
 
 COMPILED_UNSAFE_REGEXES = [re.compile(p, re.UNICODE) for p in UNSAFE_PATTERNS]

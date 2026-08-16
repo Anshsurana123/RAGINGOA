@@ -104,16 +104,16 @@ HYBRID_BM25_WEIGHT = 0.35  # Dense score weight = 1 - HYBRID_BM25_WEIGHT
 # Cross-Encoder Re-Ranking Configuration (Sub-200ms CPU re-ranking)
 ENABLE_CROSS_ENCODER = True
 CROSS_ENCODER_MODEL_NAME = os.getenv(
-    "CROSS_ENCODER_MODEL_NAME", "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    "CROSS_ENCODER_MODEL_NAME", "nreimers/mmarco-mMiniLMv2-L6-H384-v1"
 )
 CROSS_ENCODER_LOCAL_CACHE = Path(
     os.getenv(
         "CROSS_ENCODER_LOCAL_CACHE",
-        "C:/Users/ANSH/Documents/antigravity/keen-hawking/model_cache/cross-encoder-ms-marco-MiniLM-L-6-v2",
+        "",
     )
 )
 CROSS_ENCODER_TOP_K = 3
-CROSS_ENCODER_THRESHOLD = float(os.getenv("CROSS_ENCODER_THRESHOLD", "-0.5"))
+CROSS_ENCODER_THRESHOLD = float(os.getenv("CROSS_ENCODER_THRESHOLD", "0.15"))
 
 
 # ==========================================
@@ -139,7 +139,7 @@ SARVAM_STT_MAX_RETRIES = 1
 OFF_TOPIC_DISTANCE_THRESHOLD = 0.55  # Calibrated for multilingual-e5-small normalized embeddings (1 - cosine_similarity)
 
 # Post-retrieval confidence threshold (calibrated composite dense & lexical match score)
-MIN_CONFIDENT_MATCH_SCORE = 0.75  # Empirically calibrated: declines all 10 off-topic queries (<=0.7257) while passing all 45 in-scope queries (>=0.7825)
+MIN_CONFIDENT_MATCH_SCORE = float(os.getenv("MIN_CONFIDENT_MATCH_SCORE", "0.35"))
 
 
 
