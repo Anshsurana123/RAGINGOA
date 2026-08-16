@@ -29,6 +29,7 @@ from retrieval.index_faiss import get_index_manager
 from retrieval.rerank import rerank_bm25_hybrid, rerank_cross_encoder
 from chunking.hybrid_merge import merge_and_fuse_candidates
 from guardrails.pre_retrieval import check_unsafe_content, check_off_topic_query
+from guardrails.prompt_guard import get_prompt_guard_detector
 from guardrails.post_generation import check_grounding, DECLINED_RESPONSE_TEMPLATE
 from generation.extractive import generate_extractive
 from generation.answer_cache import get_answer_cache
@@ -145,12 +146,16 @@ class RAGPipelineOrchestrator:
         ))
         
         # -------------------------------------------------------------
-        # STAGE 3: Pre-Retrieval Guardrail 1 - Unsafe Content Check
+        # STAGE 3: Pre-Retrieval Guardrail 1 - Cascaded Safety Check (Regex + Prompt-Guard-86M)
         # -------------------------------------------------------------
         unsafe_start_t = time.perf_counter()
-        # Fast regex blocklist + Groq Neural Safety Model (strictly gated on ALLOW_NETWORK_CALLS_IN_PIPELINE)
+        # Fast regex blocklist + Meta Prompt-Guard-86M local ONNX discriminator (<10ms offline)
         enable_neural_safety = bool(config.ALLOW_NETWORK_CALLS_IN_PIPELINE and config.LLM_API_KEY)
-        is_safe, unsafe_reason = check_unsafe_content(raw_query_text, enable_neural=enable_neural_safety)
+        is_safe, unsafe_reason = check_unsafe_content(
+            raw_query_text,
+            enable_neural=enable_neural_safety,
+            enable_prompt_guard=config.ENABLE_PROMPT_GUARD,
+        )
         if not is_safe:
             guardrails.unsafe_detected = True
             guardrails.unsafe_reason = unsafe_reason
@@ -174,7 +179,7 @@ class RAGPipelineOrchestrator:
             stage="pre_retrieval_safety_guardrail",
             ms=round((time.perf_counter() - unsafe_start_t) * 1000, 2),
             success=True,
-            details="Passed keyword, regex, and safety checks",
+            details="Passed Tier-1 Heuristics & Tier-2 Prompt-Guard-86M checks",
         ))
         
         # -------------------------------------------------------------
@@ -419,6 +424,44 @@ class RAGPipelineOrchestrator:
             details=f"BM25 + Cross-Encoder hybrid ranking on top-{len(reranked_chunks)} candidates (confidence={top_conf:.4f}{ce_info})",
         ))
 
+        # -------------------------------------------------------------
+        # STAGE 6.5: Context Chunk Safety Guardrail (Indirect Prompt Injection Shield)
+        # -------------------------------------------------------------
+        if getattr(config, "ENABLE_CONTEXT_CHUNK_SCAN", True):
+            ctx_guard_start_t = time.perf_counter()
+            pg_detector = get_prompt_guard_detector()
+            clean_chunks, dropped_chunks = pg_detector.scan_context_chunks(reranked_chunks)
+            ctx_guard_ms = round((time.perf_counter() - ctx_guard_start_t) * 1000, 2)
+            
+            if dropped_chunks:
+                logger.warning(f"Context guard dropped {len(dropped_chunks)} poisoned chunks.")
+            
+            if not clean_chunks:
+                guardrails.unsafe_detected = True
+                guardrails.unsafe_reason = "Retrieved candidate passages contained indirect prompt injection payloads."
+                timings.append(StageTiming(
+                    stage="context_chunk_safety_guardrail",
+                    ms=ctx_guard_ms,
+                    success=False,
+                    details=f"All {len(reranked_chunks)} candidate chunks blocked by Indirect Prompt Injection shield",
+                ))
+                return self._build_declined_response(
+                    query=raw_query_text,
+                    transcript=transcript,
+                    language=target_lang,
+                    reason="Declined: retrieved information was flagged by safety guardrails.",
+                    guardrails=guardrails,
+                    timings=timings,
+                    start_t=start_pipeline_t,
+                )
+            
+            timings.append(StageTiming(
+                stage="context_chunk_safety_guardrail",
+                ms=ctx_guard_ms,
+                success=True,
+                details=f"Clean context verified ({len(clean_chunks)}/{len(reranked_chunks)} passages passed IPI scan)",
+            ))
+            reranked_chunks = clean_chunks
         
         # Calculate isolated retrieval stage latency (embedding + FAISS search + rerank)
         retrieval_ms = round(

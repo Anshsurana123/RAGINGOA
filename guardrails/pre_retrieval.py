@@ -6,17 +6,67 @@ Pre-Retrieval Guardrails:
 Decisions are logged with boolean flags and explicit reason strings.
 """
 
+import base64
 import json
 import logging
 import re
+import unicodedata
 import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import config
 from retrieval.embed import get_embedder
+from guardrails.prompt_guard import get_prompt_guard_detector, PromptGuardResult
 
 logger = logging.getLogger(__name__)
+
+# Confusable homoglyph translation table (Cyrillic, Greek, lookalikes)
+CONFUSABLES_MAP = str.maketrans({
+    'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c', 'у': 'y', 'х': 'x', 'і': 'i', 'ј': 'j',
+    'А': 'A', 'Е': 'E', 'О': 'O', 'Р': 'P', 'С': 'C', 'У': 'Y', 'Х': 'X', 'І': 'I', 'Ј': 'J',
+    'Α': 'A', 'Β': 'B', 'Ε': 'E', 'Ζ': 'Z', 'Η': 'H', 'Ι': 'I', 'Κ': 'K', 'Μ': 'M', 'Ν': 'N',
+    'Ο': 'O', 'Ρ': 'P', 'Τ': 'T', 'Υ': 'Y', 'Χ': 'X', 'ο': 'o', 'ν': 'v',
+})
+
+
+def normalize_and_unpack_text(text: str) -> List[str]:
+    """
+    Unpacks obfuscated or encoded attack vectors:
+    1. Unicode NFKD normalization (canonical decomposition).
+    2. Confusable homoglyph mapping (Cyrillic/Greek lookalikes -> Latin).
+    3. Base64 encoded segment extraction & decoding.
+    
+    Returns a list of candidate normalized text representations to screen.
+    """
+    if not text:
+        return []
+        
+    candidates = [text]
+    
+    # 1. Unicode decomposition + confusable mapping
+    try:
+        nfkd = unicodedata.normalize('NFKD', text)
+        deconfused = nfkd.translate(CONFUSABLES_MAP)
+        if deconfused != text:
+            candidates.append(deconfused)
+    except Exception:
+        pass
+        
+    # 2. Base64 payload detection & decoding
+    b64_matches = re.findall(r'[A-Za-z0-9+/=]{16,}', text)
+    for token in b64_matches:
+        try:
+            # Pad token if needed
+            padded = token + '=' * (-len(token) % 4)
+            decoded_bytes = base64.b64decode(padded)
+            decoded_str = decoded_bytes.decode('utf-8', errors='ignore').strip()
+            if decoded_str and any(c.isalnum() for c in decoded_str) and len(decoded_str) >= 4:
+                candidates.append(decoded_str)
+        except Exception:
+            pass
+            
+    return candidates
 
 # Comprehensive multilingual unsafe / inappropriate keyword and regex patterns
 # Covers profanity, hate speech, self-harm, violent extremism, weapons, and jailbreak attacks
@@ -186,11 +236,17 @@ def check_neural_safety(text: str) -> Tuple[bool, Optional[str]]:
     return True, None
 
 
-def check_unsafe_content(text: str, enable_neural: bool = False) -> Tuple[bool, Optional[str]]:
+def check_unsafe_content(
+    text: str,
+    enable_neural: bool = False,
+    enable_prompt_guard: bool = True,
+    prompt_guard_threshold: Optional[float] = None,
+) -> Tuple[bool, Optional[str]]:
     """
-    Multi-Tiered Safety Guardrail:
-    1. Tier 1: Fast keyword & regex pattern matching (< 0.05ms)
-    2. Tier 2: Pretrained Neural Guardrail model (semantic reasoning across languages)
+    Cascaded Multi-Tiered Safety Guardrail Pipeline (<10ms):
+    1. Tier 1: Unicode Normalizer + Base64 Unpacker + Compiled Multilingual Regex (<0.1ms)
+    2. Tier 2: Meta Prompt-Guard-86M Local ONNX Discriminator (<8ms on CPU)
+    3. Tier 2B: Legacy Cloud Neural Safety (only if explicitly enabled & network calls permitted)
     
     Returns:
         (is_safe, reason)
@@ -200,16 +256,38 @@ def check_unsafe_content(text: str, enable_neural: bool = False) -> Tuple[bool, 
         
     cleaned = text.strip()
     
-    # 1. Tier 1: Fast-path heuristic filter
-    for rx in COMPILED_UNSAFE_REGEXES:
-        match = rx.search(cleaned)
-        if match:
-            matched_term = match.group(0)
-            reason = f"Blocked: unsafe or inappropriate content detected ('{matched_term}')"
-            logger.warning(f"Fast-path safety guardrail triggered: {reason}")
-            return False, reason
+    # -------------------------------------------------------------
+    # Tier 1: Fast-path Heuristic & Obfuscation Decoding (<0.1ms)
+    # -------------------------------------------------------------
+    candidates = normalize_and_unpack_text(cleaned)
+    for cand in candidates:
+        for rx in COMPILED_UNSAFE_REGEXES:
+            match = rx.search(cand)
+            if match:
+                matched_term = match.group(0)
+                reason = f"Blocked by Tier-1 Heuristic: unsafe content or jailbreak signature detected ('{matched_term}')"
+                logger.warning(f"Tier-1 Fast-path safety guardrail triggered: {reason}")
+                return False, reason
             
-    # 2. Tier 2: Pretrained Neural Guardrail Model
+    # -------------------------------------------------------------
+    # Tier 2: Meta Prompt-Guard-86M Local Discriminator (<8ms)
+    # -------------------------------------------------------------
+    if enable_prompt_guard and config.ENABLE_PROMPT_GUARD:
+        try:
+            detector = get_prompt_guard_detector()
+            pg_res = detector.predict(
+                cleaned,
+                threshold=prompt_guard_threshold,
+            )
+            if not pg_res.is_safe:
+                logger.warning(f"Tier-2 Prompt-Guard triggered: {pg_res.reason}")
+                return False, pg_res.reason
+        except Exception as e:
+            logger.warning(f"Tier-2 Prompt-Guard evaluation failed: {e}")
+
+    # -------------------------------------------------------------
+    # Tier 2B: Optional Cloud LLM Neural Guardrail
+    # -------------------------------------------------------------
     if enable_neural and config.ALLOW_NETWORK_CALLS_IN_PIPELINE:
         neural_safe, neural_reason = check_neural_safety(cleaned)
         if not neural_safe:

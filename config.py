@@ -148,6 +148,15 @@ MIN_CONFIDENT_MATCH_SCORE = 0.75  # Empirically calibrated: declines all 10 off-
 # Post-generation grounding check threshold (lexical + semantic overlap)
 GROUNDING_OVERLAP_THRESHOLD = 0.30
 
+# Meta Prompt-Guard 86M Sub-10ms Neural Safety & Indirect Prompt Injection Guardrail
+ENABLE_PROMPT_GUARD = os.getenv("ENABLE_PROMPT_GUARD", "true").lower() == "true"
+PROMPT_GUARD_MODEL_NAME = os.getenv("PROMPT_GUARD_MODEL_NAME", "meta-llama/Prompt-Guard-86M")
+PROMPT_GUARD_ONNX_REPO = os.getenv("PROMPT_GUARD_ONNX_REPO", "prompt-security/Prompt-Guard-86M_onnx")
+PROMPT_GUARD_ONNX_PATH = ONNX_MODELS_DIR / "prompt_guard_86m.onnx"
+PROMPT_GUARD_THRESHOLD = float(os.getenv("PROMPT_GUARD_THRESHOLD", "0.5"))
+PROMPT_GUARD_TEMPERATURE = float(os.getenv("PROMPT_GUARD_TEMPERATURE", "1.0"))
+ENABLE_CONTEXT_CHUNK_SCAN = os.getenv("ENABLE_CONTEXT_CHUNK_SCAN", "true").lower() == "true"
+
 # ==========================================
 # 7. LLM MULTI-TIER PROVIDER & GENERATION CONFIG
 # ==========================================
