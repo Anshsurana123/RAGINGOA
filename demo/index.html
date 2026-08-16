@@ -365,32 +365,37 @@
               <span id="totalLatencyDisplay" class="text-hhemerald font-bold font-mono">TOTAL: --</span>
             </div>
 
-            <!-- 4 Stage Latencies -->
-            <div class="grid grid-cols-4 gap-2 text-center font-mono py-1">
-              <div class="bg-black/30 p-1.5 border border-emerald-900/40">
-                <div class="text-[9px] text-amber-400 font-bold uppercase">STT (VOICE)</div>
-                <div id="sttLatencyVal" class="text-xs font-bold text-white mt-0.5">--</div>
+            <!-- 5 Stage Latencies -->
+            <div class="grid grid-cols-5 gap-1.5 text-center font-mono py-1">
+              <div class="bg-black/30 p-1 border border-emerald-900/40">
+                <div class="text-[8px] text-amber-400 font-bold uppercase">STT (VOICE)</div>
+                <div id="sttLatencyVal" class="text-[11px] font-bold text-white mt-0.5">--</div>
               </div>
-              <div class="bg-black/30 p-1.5 border border-emerald-900/40">
-                <div class="text-[9px] text-emerald-400 font-bold uppercase">RETRIEVAL</div>
-                <div id="retrievalLatencyVal" class="text-xs font-bold text-hhemerald mt-0.5">--</div>
+              <div class="bg-black/30 p-1 border border-emerald-900/40">
+                <div class="text-[8px] text-purple-300 font-bold uppercase">EMBEDDING</div>
+                <div id="embeddingLatencyVal" class="text-[11px] font-bold text-purple-300 mt-0.5">--</div>
               </div>
-              <div class="bg-black/30 p-1.5 border border-emerald-900/40">
-                <div class="text-[9px] text-sky-400 font-bold uppercase">GUARDRAIL</div>
-                <div id="guardrailLatencyVal" class="text-xs font-bold text-sky-300 mt-0.5">--</div>
+              <div class="bg-black/30 p-1 border border-emerald-900/40">
+                <div class="text-[8px] text-emerald-400 font-bold uppercase">RETRIEVAL</div>
+                <div id="retrievalLatencyVal" class="text-[11px] font-bold text-hhemerald mt-0.5">--</div>
               </div>
-              <div class="bg-black/30 p-1.5 border border-emerald-900/40">
-                <div class="text-[9px] text-pink-400 font-bold uppercase">GENERATION</div>
-                <div id="genLatencyVal" class="text-xs font-bold text-pink-300 mt-0.5">--</div>
+              <div class="bg-black/30 p-1 border border-emerald-900/40">
+                <div class="text-[8px] text-sky-400 font-bold uppercase">GUARDRAIL</div>
+                <div id="guardrailLatencyVal" class="text-[11px] font-bold text-sky-300 mt-0.5">--</div>
+              </div>
+              <div class="bg-black/30 p-1 border border-emerald-900/40">
+                <div class="text-[8px] text-pink-400 font-bold uppercase">GENERATION</div>
+                <div id="genLatencyVal" class="text-[11px] font-bold text-pink-300 mt-0.5">--</div>
               </div>
             </div>
 
             <!-- Visual Split Progress Bar -->
             <div class="flex flex-col gap-1 font-mono text-[10px]">
-              <div class="flex items-center justify-between text-slate-400 text-[9px]">
-                <span class="font-bold text-slate-300">LATENCY SPLIT DISTRIBUTION</span>
-                <div class="flex items-center gap-2">
+              <div class="flex items-center justify-between text-slate-400 text-[9px] flex-wrap gap-1">
+                <span class="font-bold text-slate-300">LATENCY SPLIT</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
                   <span id="splitLabelSTT" class="text-amber-400">STT: --</span>
+                  <span id="splitLabelEmbed" class="text-purple-300">EMB: --</span>
                   <span id="splitLabelRetrieval" class="text-emerald-400">RETR: --</span>
                   <span id="splitLabelGuardrail" class="text-sky-400">GUARD: --</span>
                   <span id="splitLabelGen" class="text-pink-400">GEN: --</span>
@@ -398,6 +403,7 @@
               </div>
               <div class="w-full h-2.5 bg-black/60 rounded overflow-hidden flex border border-emerald-950">
                 <div id="splitBarSTT" class="h-full bg-amber-400 transition-all duration-300" style="width: 0%"></div>
+                <div id="splitBarEmbed" class="h-full bg-purple-400 transition-all duration-300" style="width: 0%"></div>
                 <div id="splitBarRetrieval" class="h-full bg-emerald-500 transition-all duration-300" style="width: 0%"></div>
                 <div id="splitBarGuardrail" class="h-full bg-sky-400 transition-all duration-300" style="width: 0%"></div>
                 <div id="splitBarGen" class="h-full bg-pink-500 transition-all duration-300" style="width: 0%"></div>
@@ -506,6 +512,7 @@
     // Telemetry DOM
     const totalLatencyDisplay = document.getElementById("totalLatencyDisplay");
     const sttLatencyVal = document.getElementById("sttLatencyVal");
+    const embeddingLatencyVal = document.getElementById("embeddingLatencyVal");
     const retrievalLatencyVal = document.getElementById("retrievalLatencyVal");
     const guardrailLatencyVal = document.getElementById("guardrailLatencyVal");
     const genLatencyVal = document.getElementById("genLatencyVal");
@@ -786,11 +793,11 @@
         return `${ms.toFixed(1)}ms`;
       }
 
-      // 3. Telemetry Console Metrics & Split Breakdown
+      // 3. Telemetry Console Metrics & Split Breakdown (5 Distinct Stages)
       const timings = data.stage_timings || [];
       
-      // Aggregate all stage timings into clean, mutually-exclusive categories
       let sttMs = 0;
+      let embedMs = 0;
       let retrievalMs = 0;
       let guardrailMs = 0;
       let genMs = 0;
@@ -799,7 +806,9 @@
         const stage = t.stage.toLowerCase();
         if (stage.includes("stt")) {
           sttMs += t.ms;
-        } else if (stage.includes("embedding") || stage.includes("retrieval") || stage.includes("rerank") || stage.includes("bm25") || stage.includes("cache")) {
+        } else if (stage.includes("embedding")) {
+          embedMs += t.ms;
+        } else if (stage.includes("retrieval") || stage.includes("rerank") || stage.includes("bm25") || stage.includes("cache")) {
           retrievalMs += t.ms;
         } else if (stage.includes("guardrail") || stage.includes("safety") || stage.includes("topic") || stage.includes("grounding") || stage.includes("routing")) {
           guardrailMs += t.ms;
@@ -810,29 +819,33 @@
         }
       });
 
-      // Update UI metric boxes
+      // Update UI 5-Stage Metric Boxes
       sttLatencyVal.textContent = sttMs > 0 ? formatLatency(sttMs) : "0.0ms (Text)";
+      embeddingLatencyVal.textContent = formatLatency(embedMs);
       retrievalLatencyVal.textContent = formatLatency(retrievalMs);
       guardrailLatencyVal.textContent = formatLatency(guardrailMs);
       genLatencyVal.textContent = formatLatency(genMs);
 
-      const totalMs = data.total_ms || (sttMs + retrievalMs + guardrailMs + genMs);
+      const totalMs = data.total_ms || (sttMs + embedMs + retrievalMs + guardrailMs + genMs);
       totalLatencyDisplay.textContent = `TOTAL: ${formatLatency(totalMs)}`;
 
       // Calculate Proportional Split Percentages that exactly sum to 100%
-      const totalSum = Math.max(0.001, sttMs + retrievalMs + guardrailMs + genMs);
+      const totalSum = Math.max(0.001, sttMs + embedMs + retrievalMs + guardrailMs + genMs);
       const sttPct = ((sttMs / totalSum) * 100).toFixed(1);
+      const embedPct = ((embedMs / totalSum) * 100).toFixed(1);
       const retrPct = ((retrievalMs / totalSum) * 100).toFixed(1);
       const guardPct = ((guardrailMs / totalSum) * 100).toFixed(1);
       const genPct = ((genMs / totalSum) * 100).toFixed(1);
 
       // Update Visual Split Progress Bar
       document.getElementById("splitBarSTT").style.width = `${Math.max(sttMs > 0 ? 3 : 0, (sttMs / totalSum) * 100)}%`;
+      document.getElementById("splitBarEmbed").style.width = `${Math.max(embedMs > 0 ? 3 : 0, (embedMs / totalSum) * 100)}%`;
       document.getElementById("splitBarRetrieval").style.width = `${Math.max(retrievalMs > 0 ? 3 : 0, (retrievalMs / totalSum) * 100)}%`;
       document.getElementById("splitBarGuardrail").style.width = `${Math.max(guardrailMs > 0 ? 2 : 0, (guardrailMs / totalSum) * 100)}%`;
       document.getElementById("splitBarGen").style.width = `${Math.max(genMs > 0 ? 2 : 0, (genMs / totalSum) * 100)}%`;
 
       document.getElementById("splitLabelSTT").textContent = `STT: ${sttPct}%`;
+      document.getElementById("splitLabelEmbed").textContent = `EMB: ${embedPct}%`;
       document.getElementById("splitLabelRetrieval").textContent = `RETR: ${retrPct}%`;
       document.getElementById("splitLabelGuardrail").textContent = `GUARD: ${guardPct}%`;
       document.getElementById("splitLabelGen").textContent = `GEN: ${genPct}%`;
