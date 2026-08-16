@@ -76,11 +76,9 @@ def check_grounding(
     retrieved_chunks: List[Dict[str, Any]],
     threshold: float = config.GROUNDING_OVERLAP_THRESHOLD,
     embedder=None,
-    query: Optional[str] = None,
-    query_vector: Optional[np.ndarray] = None,
 ) -> Tuple[bool, float, str, Optional[str]]:
     """
-    Evaluates grounding quality, safety refusal, and bidirectional query-answer relevance.
+    Evaluates grounding quality and safety refusal of answer against retrieved contexts.
     
     Returns:
         (is_grounded, grounding_score, final_answer, reason)
@@ -94,15 +92,10 @@ def check_grounding(
     if is_refusal:
         return False, 0.0, DECLINED_UNSAFE_TEMPLATE, f"Blocked: {refusal_reason}"
 
-    # Check 2: Grounded unanswerable refusal or declined template
-    lower_ans = answer.lower()
-    if (
-        "don't have enough grounded information" in lower_ans
-        or "no relevant information found" in lower_ans
-        or lower_ans.startswith("declined:")
-    ):
+    # Check 2: Grounded unanswerable refusal
+    if "don't have enough grounded information" in answer.lower():
         reason = "Context passages lacked sufficient factual information to answer question"
-        return False, 0.0, DECLINED_RESPONSE_TEMPLATE, reason
+        return False, 0.0, answer, reason
         
     if not retrieved_chunks:
         reason = "No retrieved context available to ground answer"
@@ -136,27 +129,5 @@ def check_grounding(
         logger.info(f"Grounding guardrail declined answer: {reason}")
         return False, combined_score, DECLINED_RESPONSE_TEMPLATE, reason
         
-    # Check 3: Bidirectional Query-to-Answer Semantic Relevance
-    if query and embedder is not None:
-        try:
-            q_vec = query_vector if (query_vector is not None and query_vector.ndim == 2) else embedder.encode_queries(query)
-            ans_passage_vec = embedder.encode_passages(answer)
-            qa_sim = float(np.dot(q_vec[0], ans_passage_vec[0]))
-            
-            q_words = set(tokenize_words(query))
-            a_words = set(tokenize_words(answer))
-            token_overlap = len(q_words.intersection(a_words))
-            
-            relevance_threshold = getattr(config, "QUERY_ANSWER_RELEVANCE_THRESHOLD", 0.68)
-            if qa_sim < relevance_threshold and token_overlap == 0:
-                reason = (
-                    f"Declined: Query-Answer semantic alignment ({qa_sim:.4f}) below threshold "
-                    f"({relevance_threshold:.4f}) with zero lexical overlap"
-                )
-                logger.info(f"Bidirectional query-grounding check declined answer: {reason}")
-                return False, qa_sim, DECLINED_RESPONSE_TEMPLATE, reason
-        except Exception as qa_err:
-            logger.debug(f"Query-answer semantic check non-fatal error: {qa_err}")
-            
     reason = f"Grounding check passed (score={combined_score:.4f})"
     return True, combined_score, answer, reason

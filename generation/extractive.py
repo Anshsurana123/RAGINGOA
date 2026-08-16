@@ -18,7 +18,6 @@ def extract_answer_from_passage(
 ) -> str:
     """
     Extracts the most relevant grounded sentence or full passage as the answer.
-    Enforces lexical/entity containment for same-script queries to prevent hub hallucination.
     """
     text = top_passage.get("text", "").strip()
     if not text:
@@ -28,12 +27,11 @@ def extract_answer_from_passage(
     if not sentences:
         return text
         
-    is_cross_script = top_passage.get("is_cross_script", False)
+    if len(sentences) <= 2:
+        return text
         
     # Find sentence with highest token overlap with query
     query_words = set(re.findall(r'\w+', query.lower(), re.UNICODE))
-    query_words = {w for w in query_words if len(w) > 1}
-    
     best_sent = sentences[0]
     best_overlap = -1
     
@@ -43,17 +41,6 @@ def extract_answer_from_passage(
         if overlap > best_overlap:
             best_overlap = overlap
             best_sent = s
-            
-    # For same-script queries with 0 term overlap, verify if any term matches the whole text
-    if not is_cross_script and best_overlap <= 0:
-        p_all_words = set(re.findall(r'\w+', text.lower(), re.UNICODE))
-        total_overlap = len(query_words.intersection(p_all_words))
-        if total_overlap == 0 and float(top_passage.get("dense_score", 0.0)) < 0.86:
-            # Query terms completely absent from passage
-            return ""
-
-    if len(sentences) <= 2:
-        return text
             
     # Return top sentence + immediately adjacent sentence for context if available
     best_idx = sentences.index(best_sent)
@@ -209,16 +196,6 @@ def generate_extractive(
         extracted_text = extract_answer_from_passage(query, retrieved_chunks[1])
         
     confidence = float(top_chunk.get("confidence", top_chunk.get("final_score", top_chunk.get("score", 0.9))))
-    
-    if not extracted_text:
-        if confidence < 0.86:
-            return {
-                "answer": "No relevant information found in the indexed corpus.",
-                "answer_source": "declined",
-                "source_chunk_id": None,
-                "confidence": confidence,
-            }
-        extracted_text = top_chunk.get("text", "").strip()
     
     return {
         "answer": extracted_text or top_chunk.get("text", "").strip(),

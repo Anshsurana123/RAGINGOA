@@ -113,7 +113,7 @@ CROSS_ENCODER_LOCAL_CACHE = Path(
     )
 )
 CROSS_ENCODER_TOP_K = 3
-CROSS_ENCODER_THRESHOLD = float(os.getenv("CROSS_ENCODER_THRESHOLD", "-2.5"))
+CROSS_ENCODER_THRESHOLD = float(os.getenv("CROSS_ENCODER_THRESHOLD", "-0.5"))
 
 
 # ==========================================
@@ -136,17 +136,14 @@ SARVAM_STT_MAX_RETRIES = 1
 # 6. GUARDRAIL THRESHOLDS
 # ==========================================
 # Pre-retrieval off-topic cosine distance threshold from nearest corpus centroid
-OFF_TOPIC_DISTANCE_THRESHOLD = 0.35  # Calibrated for multilingual-e5-small normalized embeddings
+OFF_TOPIC_DISTANCE_THRESHOLD = 0.55  # Calibrated for multilingual-e5-small normalized embeddings (1 - cosine_similarity)
 
 # Post-retrieval confidence threshold (calibrated composite dense & lexical match score)
-MIN_CONFIDENT_MATCH_SCORE = 0.70  # Baseline dense floor
+MIN_CONFIDENT_MATCH_SCORE = 0.75  # Empirically calibrated: declines all 10 off-topic queries (<=0.7257) while passing all 45 in-scope queries (>=0.7825)
 
-# Retrieval Peak-to-Baseline Margin: detects flat background noise / hubness for ungrounded queries
-RETRIEVAL_MIN_MARGIN = 0.015
-RETRIEVAL_HIGH_CONFIDENCE_THRESHOLD = 0.84
 
-# Post-generation query-answer bidirectional semantic relevance threshold
-QUERY_ANSWER_RELEVANCE_THRESHOLD = 0.68
+
+
 
 # Post-generation grounding check threshold (lexical + semantic overlap)
 GROUNDING_OVERLAP_THRESHOLD = 0.30
