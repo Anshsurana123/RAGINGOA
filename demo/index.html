@@ -187,22 +187,9 @@
           <span class="material-symbols-outlined text-sm">translate</span> LANGUAGE:
         </span>
         <div class="flex items-center flex-wrap gap-1 bg-white border-2 border-black shadow-brutal-sm p-1 rounded max-w-full overflow-x-auto">
-          <button data-lang="auto" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition bg-black text-hhgold">Auto-Detect</button>
-          <button data-lang="en" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">EN</button>
-          <button data-lang="hi" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">HI</button>
-          <button data-lang="ta" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">TA</button>
-          <button data-lang="bn" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">BN</button>
-          <button data-lang="as" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">AS</button>
-          <button data-lang="gu" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">GU</button>
-          <button data-lang="kn" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">KN</button>
-          <button data-lang="ml" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">ML</button>
-          <button data-lang="mr" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">MR</button>
-          <button data-lang="ne" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">NE</button>
-          <button data-lang="or" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">OR</button>
-          <button data-lang="pa" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">PA</button>
-          <button data-lang="te" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">TE</button>
-          <button data-lang="ur" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">UR</button>
-          <button data-lang="sa" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">SA</button>
+          <button data-lang="en" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition bg-black text-hhgold">ENGLISH</button>
+          <button data-lang="hi" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">हिन्दी</button>
+          <button data-lang="mr" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">मराठी</button>
         </div>
         <span id="detectedLangPill" class="hidden px-2 py-0.5 rounded text-[10px] font-mono bg-black text-hhemerald border border-black shadow-brutal-sm">ROUTED: EN</span>
       </div>
@@ -212,7 +199,7 @@
         <label class="flex items-center gap-2 bg-white border-2 border-black px-3 py-1 shadow-brutal-sm cursor-pointer hover:bg-amber-50">
           <input type="checkbox" id="crossLingualToggle" class="rounded border-black text-hhdarkgreen focus:ring-0 cursor-pointer"/>
           <span class="font-bold text-black">Cross-Lingual Federation</span>
-          <span class="text-slate-500 text-[10px]">(14 INDIC + EN)</span>
+          <span class="text-slate-500 text-[10px]">(EN + HI + MR)</span>
         </label>
 
         <div class="hidden sm:flex items-center gap-2 bg-white border-2 border-black px-3 py-1 shadow-brutal-sm">
@@ -263,7 +250,7 @@
 
           <!-- Query Input Bar -->
           <div class="w-full flex gap-2">
-            <input type="text" id="queryInput" placeholder="Ask in Hindi, Tamil, Telugu, Bengali, Urdu, Marathi, Gujarati, Kannada, Malayalam, Odia, Punjabi, Assamese, Nepali, Sanskrit, or English..."
+            <input type="text" id="queryInput" placeholder="Ask in English, Hindi, or Marathi..."
               class="w-full bg-sand-50 border-2 border-black px-3.5 py-2.5 font-sans text-sm text-black placeholder:text-slate-400 focus:outline-none focus:bg-white shadow-brutal-sm"/>
             <button id="searchBtn" class="px-4 py-2.5 bg-black hover:bg-slate-800 active:scale-95 text-hhgold font-mono font-bold text-xs border-2 border-black shadow-brutal-sm flex items-center gap-1 transition">
               <span>RUN</span>
@@ -275,24 +262,12 @@
           <div class="w-full flex flex-col gap-1 text-[11px] font-mono">
             <div class="text-slate-600 font-bold flex items-center gap-1">
               <span class="material-symbols-outlined text-xs text-hhdarkgreen">tips_and_updates</span>
-              <span>QUICK PROMPTS (14 INDIC + EN):</span>
+              <span>QUICK PROMPTS (EN + HI + MR):</span>
             </div>
             <div class="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="hi" data-text="मैनहट्टन परियोजना का मुख्य उद्देश्य क्या था?">🇮🇳 HI: मैनहट्टन परियोजना</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="ta" data-text="மன்ஹாட்டன் திட்டத்தின் நோக்கம் என்ன?">🇮🇳 TA: மன்ஹாட்டன் திட்டம்</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="te" data-text="మాన్‌హాటన్ ప్రాజెక్ట్ యొక్క ప్రధాన ఉద్దేశ్యం ఏమిటి?">🇮🇳 TE: మాన్‌హాటన్ ప్రాజెక్ట్</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="bn" data-text="ম্যানহাটন প্রকল্পের মূল উদ্দেশ্য কি ছিল?">🇮🇳 BN: ম্যানহাটন প্রকল্প</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="ur" data-text="مین ہیٹن پروجیکٹ کا بنیادی مقصد کیا تھا؟">🇮🇳 UR: مین ہیٹن پروجیکٹ</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="mr" data-text="मॅनहॅटन प्रकल्पाचा मुख्य उद्देश काय होता?">🇮🇳 MR: मॅनहॅटन प्रकल्प</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="gu" data-text="મેનહટન પ્રોજેક્ટનો મુખ્ય હેતુ શું હતો?">🇮🇳 GU: મેનહટન પ્રોજેક્ટ</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="kn" data-text="ಮ್ಯಾನ್‌ಹ್ಯಾಟನ್ ಯೋಜನೆಯ ಮುಖ್ಯ ಉದ್ದೇಶವೇನು?">🇮🇳 KN: ಮ್ಯಾನ್‌ಹ್ಯಾಟನ್ ಯೋಜನೆ</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="ml" data-text="മാൻഹട്ടൻ പദ്ധതിയുടെ പ്രധാന ലക്ഷ്യം എന്തായിരുന്നു?">🇮🇳 ML: മാൻഹട്ടൻ പദ്ധതി</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="pa" data-text="ਮੈਨਹੈਟਨ ਪ੍ਰੋਜੈਕਟ ਦਾ ਮੁੱਖ ਉਦੇਸ਼ ਕੀ ਸੀ?">🇮🇳 PA: ਮੈਨਹੈਟਨ ਪ੍ਰੋਜੈਕਟ</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="as" data-text="মেনহাটন প্ৰকল্পৰ মূল উদ্দেশ্য কি আছিল?">🇮🇳 AS: মেনহাটন প্ৰকল্প</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="or" data-text="ମ୍ୟାନହାଟନ ପ୍ରକଳ୍ପର ମୁଖ୍ୟ ଉଦ୍ଦେଶ୍ୟ କ’ଣ ଥିଲା?">🇮🇳 OR: ମ୍ୟାନହାଟନ ପ୍ରକଳ୍ପ</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="ne" data-text="म्यानहट्टन परियोजनाको मुख्य उद्देश्य के थियो?">🇳🇵 NE: म्यानहट्टन परियोजना</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="sa" data-text="कम्पनी इत्यस्य निगमनं कथं भवति?">🇮🇳 SA: कम्पनी निगमनम्</button>
-              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="en" data-text="What was the purpose of the Manhattan Project?">🇬🇧 EN: Manhattan Project</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="en" data-text="What was the purpose of the Manhattan Project?">EN: Manhattan Project</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="hi" data-text="मैनहट्टन परियोजना का मुख्य उद्देश्य क्या था?">HI: मैनहट्टन परियोजना</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="mr" data-text="मॅनहॅटन प्रकल्पाचा मुख्य उद्देश काय होता?">MR: मॅनहॅटन प्रकल्प</button>
             </div>
           </div>
         </div>
@@ -501,7 +476,7 @@
 
   <!-- CLIENT JAVASCRIPT FOR INTERACTION & API INTEGRATION -->
   <script>
-    let currentLanguage = "auto";
+    let currentLanguage = "en";
     let isRecording = false;
     let mediaRecorder = null;
     let audioChunks = [];
@@ -775,19 +750,7 @@
           const langMap = {
             en: "bg-sky-900 text-sky-200",
             hi: "bg-amber-900 text-amber-200",
-            ta: "bg-emerald-900 text-emerald-200",
-            te: "bg-blue-900 text-blue-200",
-            bn: "bg-indigo-900 text-indigo-200",
-            ur: "bg-fuchsia-900 text-fuchsia-200",
-            mr: "bg-red-900 text-red-200",
-            gu: "bg-orange-900 text-orange-200",
-            kn: "bg-purple-900 text-purple-200",
-            ml: "bg-teal-900 text-teal-200",
-            pa: "bg-lime-900 text-lime-200",
-            as: "bg-emerald-800 text-emerald-200",
-            or: "bg-cyan-900 text-cyan-200",
-            ne: "bg-yellow-900 text-yellow-200",
-            sa: "bg-rose-900 text-rose-200"
+            mr: "bg-red-900 text-red-200"
           };
           const lang = (c.source_lang || "").toLowerCase();
           let langPillBg = langMap[lang] || "bg-slate-800 text-slate-200";

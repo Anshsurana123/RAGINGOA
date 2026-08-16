@@ -62,7 +62,7 @@ class RAGPipelineOrchestrator:
         guardrails = GuardrailFlags()
         
         raw_query_text = ""
-        language = request.language_hint or "hi"
+        language = request.language_hint or "en"
         transcript = ""
         
         # -------------------------------------------------------------
@@ -636,7 +636,7 @@ class RAGPipelineOrchestrator:
         """
         Dynamically detects or routes language against config.LANGUAGES.
         1. Explicit User Selection: If the user selected a valid language (not 'auto' or 'unknown'), respect it.
-        2. Auto-detection: If 'auto' or no hint, inspect character script Unicode blocks (Devanagari, Tamil, Bengali, etc.).
+        2. Auto-detection: If 'auto' or no hint, inspect the configured English/Hindi/Marathi script space.
         3. Latin script check: Route to English ('en') if Latin characters are present in auto mode.
         4. Safe default fallback to 'en' or first configured language.
         """
@@ -652,55 +652,14 @@ class RAGPipelineOrchestrator:
 
         cleaned = text.strip() if text else ""
         
-        # 2. Auto-detection from Indic native Unicode scripts
-        # Check for specific Assamese characters first
-        if any(c in cleaned for c in ["\u09f0", "\u09f1"]) and "as" in config.LANGUAGES:
-            return "as"
-
-        for char in cleaned:
-            code = ord(char)
-            # Devanagari (Hindi, Marathi, Sanskrit, Nepali)
-            if 0x0900 <= code <= 0x097F:
-                for cand in ["hi", "mr", "ne", "sa"]:
-                    if cand in config.LANGUAGES:
-                        return cand
-            # Bengali / Assamese
-            elif 0x0980 <= code <= 0x09FF:
-                for cand in ["bn", "as"]:
-                    if cand in config.LANGUAGES:
-                        return cand
-            # Gurmukhi / Punjabi
-            elif 0x0A00 <= code <= 0x0A7F:
-                if "pa" in config.LANGUAGES:
-                    return "pa"
-            # Gujarati
-            elif 0x0A80 <= code <= 0x0AFF:
-                if "gu" in config.LANGUAGES:
-                    return "gu"
-            # Odia
-            elif 0x0B00 <= code <= 0x0B7F:
-                if "or" in config.LANGUAGES:
-                    return "or"
-            # Tamil
-            elif 0x0B80 <= code <= 0x0BFF:
-                if "ta" in config.LANGUAGES:
-                    return "ta"
-            # Telugu
-            elif 0x0C00 <= code <= 0x0C7F:
-                if "te" in config.LANGUAGES:
-                    return "te"
-            # Kannada
-            elif 0x0C80 <= code <= 0x0CFF:
-                if "kn" in config.LANGUAGES:
-                    return "kn"
-            # Malayalam
-            elif 0x0D00 <= code <= 0x0D7F:
-                if "ml" in config.LANGUAGES:
-                    return "ml"
-            # Arabic / Urdu
-            elif 0x0600 <= code <= 0x06FF or 0x0750 <= code <= 0x077F or 0xFB50 <= code <= 0xFDFF or 0xFE70 <= code <= 0xFEFF:
-                if "ur" in config.LANGUAGES:
-                    return "ur"
+        # 2. Auto-detection from the configured native script space.
+        # Hindi and Marathi share Devanagari; an explicit hint is required to
+        # distinguish them, so unhinted Devanagari safely defaults to Hindi.
+        if any(0x0900 <= ord(char) <= 0x097F for char in cleaned):
+            if "hi" in config.LANGUAGES:
+                return "hi"
+            if "mr" in config.LANGUAGES:
+                return "mr"
                     
         # 3. Check if the text contains Latin letters (English)
         has_latin = bool(re.search(r"[a-zA-Z]", cleaned))

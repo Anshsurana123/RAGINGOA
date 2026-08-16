@@ -27,6 +27,7 @@ from chunking.sentence_window import process_longdocs_sentence_window
 from chunking.semantic import process_longdocs_semantic
 from retrieval.embed import get_embedder
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", force=True)
 logger = logging.getLogger(__name__)
 
 
@@ -195,108 +196,203 @@ class IndexManager:
         self.global_centroid: Optional[np.ndarray] = None
         self.embedder = get_embedder()
 
-    def build_all_indexes(self, max_passages_per_lang: int = 10000):
+    @staticmethod
+    def _iter_jsonl(path: Path, limit: Optional[int] = None):
+        """Yield JSONL records without loading an entire corpus into memory."""
+        yielded = 0
+        with open(path, "r", encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                if limit is not None and yielded >= limit:
+                    break
+                if not line.strip():
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    logger.warning("Skipping malformed JSONL record %s:%s: %s", path, line_number, exc)
+                    continue
+                yielded += 1
+                yield record
+
+    def _add_embedded_chunks(
+        self,
+        index: StrategyVectorIndex,
+        chunks: List[Chunk],
+        centroid_sums: Dict[str, np.ndarray],
+        centroid_counts: Dict[str, int],
+    ) -> int:
+        """Embed and add one bounded batch, updating centroid statistics online."""
+        if not chunks:
+            return 0
+        texts = [chunk.embed_text for chunk in chunks]
+        vectors = self.embedder.encode_passages(
+            texts,
+            batch_size=min(config.INDEX_BUILD_BATCH_SIZE, 128),
+        )
+        if len(vectors) != len(chunks):
+            raise RuntimeError(
+                f"Embedder returned {len(vectors)} vectors for {len(chunks)} chunks"
+            )
+        index.add_chunks(chunks, vectors)
+        for chunk, vector in zip(chunks, vectors):
+            lang = chunk.source_lang.lower()
+            if lang not in centroid_sums:
+                centroid_sums[lang] = np.zeros(index.dim, dtype=np.float64)
+                centroid_counts[lang] = 0
+            centroid_sums[lang] += vector.astype(np.float64, copy=False)
+            centroid_counts[lang] += 1
+        return len(chunks)
+
+    def build_all_indexes(self, max_passages_per_lang: Optional[int] = None):
         """
-        Builds combined FAISS indexes for:
-        1. 'passage_native' (MS MARCO passages across all configured languages)
-        2. 'semantic_longdoc' (Sentence-window + Semantic chunks across all configured languages)
+        Build complete combined indexes for all configured languages.
+
+        ``None`` means no per-language cap. Records are streamed from JSONL and
+        embedded in bounded batches, so the full corpus is indexed without the
+        previous implicit 700-record truncation or an all-corpus memory spike.
         """
-        logger.info(f"Building all indexes for configured languages: {config.LANGUAGES}")
-        
-        # --- 1. Passage Native Index ---
+        if max_passages_per_lang is not None and max_passages_per_lang <= 0:
+            raise ValueError("max_passages_per_lang must be positive or None")
+        batch_size = max(1, int(getattr(config, "INDEX_BUILD_BATCH_SIZE", 512)))
+        logger.info(
+            "Building complete indexes for languages=%s (passage_limit=%s, batch_size=%s)",
+            config.LANGUAGES,
+            max_passages_per_lang if max_passages_per_lang is not None else "unlimited",
+            batch_size,
+        )
+
+        self.indexes = {}
+        self.centroids = {}
+        self.global_centroid = None
+        centroid_sums: Dict[str, np.ndarray] = {}
+        centroid_counts: Dict[str, int] = {}
+        passage_counts: Dict[str, int] = {}
+        longdoc_counts: Dict[str, int] = {}
+
+        # Passage-native index: stream each language corpus and add bounded batches.
         passage_index = StrategyVectorIndex("passage_native")
-        all_passage_chunks: List[Chunk] = []
-        
+        passage_total = 0
         for lang in config.LANGUAGES:
             corpus_file = config.PROCESSED_DATA_DIR / f"{lang}_corpus.jsonl"
             if not corpus_file.exists():
-                logger.warning(f"Corpus file {corpus_file} not found. Skipping.")
+                logger.warning("Corpus file %s not found; skipping language '%s'.", corpus_file, lang)
                 continue
-                
-            lang_records = []
-            with open(corpus_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        lang_records.append(json.loads(line.strip()))
-                        if len(lang_records) >= max_passages_per_lang:
-                            break
-                            
-            lang_chunks = process_corpus_passage_native(lang_records)
-            all_passage_chunks.extend(lang_chunks)
-            logger.info(f"Loaded {len(lang_chunks)} passage-native chunks for '{lang}'.")
-            
-        if all_passage_chunks:
-            logger.info(f"Embedding {len(all_passage_chunks)} total passage chunks with 'passage: ' prefix...")
-            texts_to_embed = [c.embed_text for c in all_passage_chunks]
-            passage_vectors = self.embedder.encode_passages(texts_to_embed, batch_size=32)
-            passage_index.add_chunks(all_passage_chunks, passage_vectors)
+            batch_records: List[Dict[str, Any]] = []
+            lang_total = 0
+            for record in self._iter_jsonl(corpus_file, max_passages_per_lang):
+                batch_records.append(record)
+                if len(batch_records) >= batch_size:
+                    chunks = process_corpus_passage_native(batch_records)
+                    added = self._add_embedded_chunks(
+                        passage_index, chunks, centroid_sums, centroid_counts
+                    )
+                    lang_total += added
+                    logger.info("Language '%s': embedded %d chunks (lang total: %d)...", lang, added, lang_total)
+                    batch_records.clear()
+            if batch_records:
+                chunks = process_corpus_passage_native(batch_records)
+                added = self._add_embedded_chunks(
+                    passage_index, chunks, centroid_sums, centroid_counts
+                )
+                lang_total += added
+                logger.info("Language '%s': embedded final %d chunks (lang total: %d)...", lang, added, lang_total)
+            passage_total += lang_total
+            passage_counts[lang] = lang_total
+            logger.info("Finished indexing %s passage-native chunks for '%s'.", lang_total, lang)
+
+        if passage_total:
             passage_index.save(self.index_dir)
             self.indexes["passage_native"] = passage_index
-            
-            # Compute centroids for off-topic guardrail
-            self._compute_and_save_centroids(all_passage_chunks, passage_vectors)
-            
-        # --- 2. Semantic & Sentence-Window Long-Doc Index ---
+            self._save_centroids(centroid_sums, centroid_counts)
+        else:
+            logger.warning("No passage corpus records were indexed.")
+
+        # Long-document index: process one document at a time and embed bounded batches.
         longdoc_index = StrategyVectorIndex("semantic_longdoc")
-        all_longdoc_chunks: List[Chunk] = []
-        
+        longdoc_total = 0
         for lang in config.LANGUAGES:
             longdoc_file = config.PROCESSED_DATA_DIR / f"{lang}_longdocs.jsonl"
             if not longdoc_file.exists():
+                logger.info("Long-document file %s not found; skipping.", longdoc_file)
                 continue
-                
-            longdoc_records = []
-            with open(longdoc_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        longdoc_records.append(json.loads(line.strip()))
-                        
-            # Create sentence-window chunks
-            sw_chunks = process_longdocs_sentence_window(longdoc_records)
-            # Create semantic chunks
-            sem_chunks = process_longdocs_semantic(longdoc_records)
-            
-            all_longdoc_chunks.extend(sw_chunks)
-            all_longdoc_chunks.extend(sem_chunks)
-            logger.info(f"Created {len(sw_chunks)} sentence-window and {len(sem_chunks)} semantic chunks for '{lang}'.")
-            
-        if all_longdoc_chunks:
-            logger.info(f"Embedding {len(all_longdoc_chunks)} longdoc chunks...")
-            longdoc_texts = [c.embed_text for c in all_longdoc_chunks]
-            longdoc_vectors = self.embedder.encode_passages(longdoc_texts, batch_size=32)
-            longdoc_index.add_chunks(all_longdoc_chunks, longdoc_vectors)
+            pending_chunks: List[Chunk] = []
+            lang_total = 0
+            for record in self._iter_jsonl(longdoc_file):
+                pending_chunks.extend(process_longdocs_sentence_window([record]))
+                pending_chunks.extend(process_longdocs_semantic([record]))
+                if len(pending_chunks) >= batch_size:
+                    lang_total += self._add_embedded_chunks(
+                        longdoc_index, pending_chunks, {}, {}
+                    )
+                    pending_chunks.clear()
+            if pending_chunks:
+                lang_total += self._add_embedded_chunks(
+                    longdoc_index, pending_chunks, {}, {}
+                )
+            longdoc_total += lang_total
+            longdoc_counts[lang] = lang_total
+            logger.info("Indexed %s long-document chunks for '%s'.", lang_total, lang)
+
+        if longdoc_total:
             longdoc_index.save(self.index_dir)
             self.indexes["semantic_longdoc"] = longdoc_index
-            
-        logger.info("All strategy indexes successfully built and persisted!")
+        else:
+            logger.warning("No long-document records were indexed.")
 
-    def _compute_and_save_centroids(self, chunks: List[Chunk], vectors: np.ndarray):
-        """Compute mean centroid vectors per language and globally for off-topic check."""
-        lang_vectors: Dict[str, List[np.ndarray]] = {}
-        for c, v in zip(chunks, vectors):
-            lang = c.source_lang.lower()
-            if lang not in lang_vectors:
-                lang_vectors[lang] = []
-            lang_vectors[lang].append(v)
-            
-        centroids_dict = {}
-        for lang, vecs in lang_vectors.items():
-            arr = np.array(vecs)
-            mean_vec = np.mean(arr, axis=0)
-            norm_vec = mean_vec / (np.linalg.norm(mean_vec) + 1e-9)
+        manifest = {
+            "languages": list(config.LANGUAGES),
+            "full_corpus": max_passages_per_lang is None,
+            "passage_counts": passage_counts,
+            "longdoc_counts": longdoc_counts,
+            "embedding_model": config.EMBEDDING_MODEL_NAME,
+        }
+        with open(self.index_dir / "index_manifest.json", "w", encoding="utf-8") as handle:
+            json.dump(manifest, handle, ensure_ascii=False, indent=2)
+
+        logger.info(
+            "Completed full indexing: %s passage-native and %s long-document chunks.",
+            passage_total,
+            longdoc_total,
+        )
+
+    def _save_centroids(
+        self, centroid_sums: Dict[str, np.ndarray], centroid_counts: Dict[str, int]
+    ):
+        """Normalize and persist online per-language and global centroid statistics."""
+        if not centroid_counts:
+            return
+        centroids_dict: Dict[str, List[float]] = {}
+        total_sum = np.zeros(config.EMBEDDING_DIM, dtype=np.float64)
+        total_count = 0
+        self.centroids = {}
+        for lang in config.LANGUAGES:
+            if lang not in centroid_counts:
+                continue
+            mean_vec = centroid_sums[lang] / centroid_counts[lang]
+            norm_vec = (mean_vec / (np.linalg.norm(mean_vec) + 1e-12)).astype(np.float32)
             centroids_dict[lang] = norm_vec.tolist()
             self.centroids[lang] = norm_vec
-            
-        # Global centroid
-        global_mean = np.mean(vectors, axis=0)
-        global_norm = global_mean / (np.linalg.norm(global_mean) + 1e-9)
+            total_sum += centroid_sums[lang]
+            total_count += centroid_counts[lang]
+        global_mean = total_sum / max(total_count, 1)
+        global_norm = (global_mean / (np.linalg.norm(global_mean) + 1e-12)).astype(np.float32)
         centroids_dict["global"] = global_norm.tolist()
         self.global_centroid = global_norm
-        
         centroid_file = self.index_dir / "centroids.json"
-        with open(centroid_file, "w", encoding="utf-8") as f:
-            json.dump(centroids_dict, f)
-        logger.info(f"Saved corpus centroids to {centroid_file}")
+        with open(centroid_file, "w", encoding="utf-8") as handle:
+            json.dump(centroids_dict, handle, ensure_ascii=False)
+        logger.info("Saved corpus centroids to %s", centroid_file)
+
+    def _compute_and_save_centroids(self, chunks: List[Chunk], vectors: np.ndarray):
+        """Compatibility helper for callers that already hold one vector batch."""
+        sums: Dict[str, np.ndarray] = {}
+        counts: Dict[str, int] = {}
+        for chunk, vector in zip(chunks, vectors):
+            lang = chunk.source_lang.lower()
+            sums.setdefault(lang, np.zeros(vectors.shape[1], dtype=np.float64))
+            sums[lang] += vector.astype(np.float64, copy=False)
+            counts[lang] = counts.get(lang, 0) + 1
+        self._save_centroids(sums, counts)
 
     def load_all_indexes(self):
         """Loads all existing strategy indexes and centroids from disk into memory with auto-rebuild fallback."""
@@ -330,10 +426,23 @@ class IndexManager:
         else:
             loaded_ok = False
 
-        # Self-healing fallback: If primary indexes or centroids are missing/empty, build fresh!
-        if not loaded_ok or "passage_native" not in self.indexes or self.indexes["passage_native"].index.ntotal == 0:
-            logger.info("[IndexManager] Auto-recovering: Building all FAISS indexes and centroids fresh from corpus...")
-            self.build_all_indexes(max_passages_per_lang=700)
+        # Rebuild stale artifacts produced by old languages or missing manifest.
+        manifest_file = self.index_dir / "index_manifest.json"
+        manifest_ok = False
+        if manifest_file.exists():
+            try:
+                with open(manifest_file, "r", encoding="utf-8") as handle:
+                    manifest = json.load(handle)
+                manifest_ok = set(manifest.get("languages", [])) == set(config.LANGUAGES)
+            except Exception as exc:
+                logger.warning("Failed loading index manifest: %s", exc)
+        else:
+            logger.info("Index manifest is missing; treating existing indexes as stale.")
+
+        if not loaded_ok or not manifest_ok or "passage_native" not in self.indexes or self.indexes["passage_native"].index.ntotal == 0:
+            logger.info("[IndexManager] Auto-recovering: building complete indexes from corpus...")
+            limit = getattr(config, "MAX_INDEX_PASSAGES_PER_LANG", 1000)
+            self.build_all_indexes(max_passages_per_lang=limit)
 
 
 
@@ -351,4 +460,4 @@ def get_index_manager() -> IndexManager:
 
 if __name__ == "__main__":
     manager = IndexManager()
-    manager.build_all_indexes(max_passages_per_lang=700)
+    manager.build_all_indexes(max_passages_per_lang=None)

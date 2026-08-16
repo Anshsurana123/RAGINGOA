@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Voice-Enabled Indic RAG API",
-    description="Instrumented low-latency Voice RAG pipeline for Indic languages (Hindi, Tamil, English)",
+    description="Instrumented low-latency Voice RAG pipeline for Indic languages (English, Hindi, Marathi)",
     version="1.0.0",
     lifespan=lifespan,
 )

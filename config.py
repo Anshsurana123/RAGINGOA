@@ -18,8 +18,8 @@ load_dotenv()
 # ==========================================
 # 1. LANGUAGE CONFIGURATION (Single Source of Truth)
 # ==========================================
-# Active languages: 14 Indic languages + English
-LANGUAGES = ["as", "bn", "gu", "hi", "kn", "ml", "mr", "ne", "or", "pa", "sa", "ta", "te", "ur", "en"]
+# Active languages for the deployed Space. Keep this list as the single source of truth.
+LANGUAGES = ["en", "hi", "mr"]
 
 # Comprehensive registry of supported Indic language metadata for MSMARCO-XI & STT mapping
 SUPPORTED_LANGUAGE_REGISTRY = {
@@ -85,13 +85,17 @@ PASSAGE_PREFIX = "passage: "
 ENABLE_ONNX_EMBEDDING = os.getenv("ENABLE_ONNX_EMBEDDING", "true").lower() == "true"
 ENABLE_ONNX_CROSS_ENCODER = os.getenv("ENABLE_ONNX_CROSS_ENCODER", "true").lower() == "true"
 ONNX_MODELS_DIR = DATA_DIR / "onnx_models"
-ONNX_NUM_THREADS = int(os.getenv("ONNX_NUM_THREADS", "4"))
+ONNX_NUM_THREADS = int(os.getenv("ONNX_NUM_THREADS", "8"))
 ONNX_MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Context Bounding & Passage Token Truncation
 CONTEXT_BOUNDING_MAX_TOKENS = int(os.getenv("CONTEXT_BOUNDING_MAX_TOKENS", "128"))
 
 # FAISS HNSW Index Hyperparameters
+# Build embeddings in bounded batches so an uncapped corpus does not require
+# holding every tokenized batch and vector in memory at once.
+INDEX_BUILD_BATCH_SIZE = int(os.getenv("INDEX_BUILD_BATCH_SIZE", "512"))
+MAX_INDEX_PASSAGES_PER_LANG = int(os.getenv("MAX_INDEX_PASSAGES_PER_LANG", "1000")) if os.getenv("MAX_INDEX_PASSAGES_PER_LANG") else 1000
 HNSW_M = 32
 HNSW_EF_CONSTRUCTION = 200
 HNSW_EF_SEARCH = 64

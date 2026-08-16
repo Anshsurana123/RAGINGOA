@@ -33,6 +33,12 @@ data/onnx_models/
 *.onnx.data
 *.parquet
 *.jsonl
+!data/processed/en_corpus.jsonl
+!data/processed/hi_corpus.jsonl
+!data/processed/mr_corpus.jsonl
+!data/processed/en_longdocs.jsonl
+!data/processed/hi_longdocs.jsonl
+!data/processed/mr_longdocs.jsonl
 *.tar.gz
 *.zip
 

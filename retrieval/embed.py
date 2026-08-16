@@ -54,7 +54,7 @@ class ONNXMultilingualE5Embedder:
         opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         
-        load_path = self.onnx_fp32_path if self.onnx_fp32_path.exists() else self.onnx_int8_path
+        load_path = self.onnx_int8_path if self.onnx_int8_path.exists() else self.onnx_fp32_path
         logger.info(f"Loading ONNX embedding model from: {load_path} (threads={num_threads})")
         self.session = ort.InferenceSession(str(load_path), opts, providers=["CPUExecutionProvider"])
         
