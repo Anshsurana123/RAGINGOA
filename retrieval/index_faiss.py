@@ -58,6 +58,11 @@ class StrategyVectorIndex:
         # Precomputed index mappings for ultra-fast language filtering
         self.lang_to_indices: Dict[str, List[int]] = {}
 
+    @property
+    def size(self) -> int:
+        """Returns the number of indexed chunks."""
+        return len(self.chunks)
+
     def add_chunks(self, chunks: List[Chunk], vectors: np.ndarray):
         """Add chunks and precomputed vectors to index."""
         if len(chunks) == 0:
