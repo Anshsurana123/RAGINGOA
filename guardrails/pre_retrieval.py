@@ -18,8 +18,15 @@ import numpy as np
 import config
 from retrieval.embed import get_embedder
 from guardrails.prompt_guard import get_prompt_guard_detector, PromptGuardResult
+from guardrails.patterns_ext import UNSAFE_PATTERN_EXTENSIONS, INTENT_PATTERN_EXTENSIONS
 
 logger = logging.getLogger(__name__)
+
+LAST_SAFETY_TELEMETRY: Dict[str, Any] = {"safety_model_failed": False, "reason": None}
+
+def get_safety_telemetry() -> Dict[str, Any]:
+    """Return a copy of the most recent Prompt-Guard failure telemetry."""
+    return dict(LAST_SAFETY_TELEMETRY)
 
 # Confusable homoglyph translation table (Cyrillic, Greek, lookalikes)
 CONFUSABLES_MAP = str.maketrans({
@@ -158,6 +165,8 @@ UNSAFE_PATTERNS = [
     r"(?i)(بم\s*(بنانا|بنانے)|دھماکہ|ہتھیار|زہر|خودکشی|قتل|دہشت\s*گرد)",
     r"(?i)(چوری\s*(کرنا|کیسے)|ڈکیتی|دھوکہ\s*دہی|فراڈ\s*کرنا|بینک\s*اکاؤنٹ\s*ہیک|جعلی\s*(نوٹ|دستاویزات)|گھپلا|پیسے\s*لوٹنا)",
 ]
+
+UNSAFE_PATTERNS.extend(UNSAFE_PATTERN_EXTENSIONS)
 
 COMPILED_UNSAFE_REGEXES = [re.compile(p, re.UNICODE) for p in UNSAFE_PATTERNS]
 
@@ -316,10 +325,13 @@ def check_unsafe_content(
                 cleaned,
                 threshold=prompt_guard_threshold,
             )
+            if getattr(pg_res, "safety_model_failed", False):
+                LAST_SAFETY_TELEMETRY.update({"safety_model_failed": True, "reason": pg_res.reason})
             if not pg_res.is_safe:
                 logger.warning(f"Tier-2 Prompt-Guard triggered: {pg_res.reason}")
                 return False, pg_res.reason
         except Exception as e:
+            LAST_SAFETY_TELEMETRY.update({"safety_model_failed": True, "reason": f"Prompt-Guard exception: {e}"})
             logger.warning(f"Tier-2 Prompt-Guard evaluation failed: {e}")
 
     # -------------------------------------------------------------
@@ -426,6 +438,9 @@ INTENT_PATTERNS = {
         r"(?i)((कुत्ते|बिल्ली|बच्चे|दुकान|कंपनी)\s+का\s+(नाम\s+सुझाओ|नामकरण|नाम\s+बताओ)|(कुत्रा|मांजर|बाळ|व्यवसाय|कंपनी)\s+चे\s+(नाव\s+सुचवा|नाव\s+सांगा)|नाम\s+सुझाओ|नाव\s+सुचवा)",
     ],
 }
+
+for _intent_name, _intent_patterns in INTENT_PATTERN_EXTENSIONS.items():
+    INTENT_PATTERNS.setdefault(_intent_name, []).extend(_intent_patterns)
 
 COMPILED_INTENT_REGEXES = {
     intent: [re.compile(p, re.UNICODE) for p in patterns]

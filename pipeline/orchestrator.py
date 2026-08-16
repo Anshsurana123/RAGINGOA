@@ -28,7 +28,7 @@ from retrieval.embed import get_embedder
 from retrieval.index_faiss import get_index_manager
 from retrieval.rerank import rerank_bm25_hybrid, rerank_cross_encoder, get_cross_encoder
 from chunking.hybrid_merge import merge_and_fuse_candidates
-from guardrails.pre_retrieval import check_unsafe_content, check_off_topic_query, check_query_intent
+from guardrails.pre_retrieval import check_unsafe_content, check_off_topic_query, check_query_intent, get_safety_telemetry
 from guardrails.prompt_guard import get_prompt_guard_detector
 from guardrails.post_generation import check_grounding, DECLINED_RESPONSE_TEMPLATE
 from generation.extractive import generate_extractive
@@ -165,6 +165,7 @@ class RAGPipelineOrchestrator:
             enable_neural=enable_neural_safety,
             enable_prompt_guard=config.ENABLE_PROMPT_GUARD,
         )
+        guardrails.safety_model_failed = bool(get_safety_telemetry().get("safety_model_failed", False))
         if not is_safe:
             guardrails.unsafe_detected = True
             guardrails.unsafe_reason = unsafe_reason

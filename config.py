@@ -95,7 +95,7 @@ CONTEXT_BOUNDING_MAX_TOKENS = int(os.getenv("CONTEXT_BOUNDING_MAX_TOKENS", "64")
 # Build embeddings in bounded batches so an uncapped corpus does not require
 # holding every tokenized batch and vector in memory at once.
 INDEX_BUILD_BATCH_SIZE = int(os.getenv("INDEX_BUILD_BATCH_SIZE", "512"))
-MAX_INDEX_PASSAGES_PER_LANG = int(os.getenv("MAX_INDEX_PASSAGES_PER_LANG", "1000")) if os.getenv("MAX_INDEX_PASSAGES_PER_LANG") else 1000
+MAX_INDEX_PASSAGES_PER_LANG = int(os.getenv("MAX_INDEX_PASSAGES_PER_LANG")) if os.getenv("MAX_INDEX_PASSAGES_PER_LANG") else None
 HNSW_M = 32
 HNSW_EF_CONSTRUCTION = 200
 HNSW_EF_SEARCH = 64
@@ -206,4 +206,3 @@ ADAPTION_API_KEY = os.getenv("ADAPTION_API_KEY", "")
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "7860"))
 REQUEST_TIMEOUT_SECONDS = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "15.0"))
-

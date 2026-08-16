@@ -446,7 +446,7 @@ class IndexManager:
 
         if not loaded_ok or not manifest_ok or "passage_native" not in self.indexes or self.indexes["passage_native"].index.ntotal == 0:
             logger.info("[IndexManager] Auto-recovering: building complete indexes from corpus...")
-            limit = getattr(config, "MAX_INDEX_PASSAGES_PER_LANG", 1000)
+            limit = getattr(config, "MAX_INDEX_PASSAGES_PER_LANG", None)
             self.build_all_indexes(max_passages_per_lang=limit)
 
 

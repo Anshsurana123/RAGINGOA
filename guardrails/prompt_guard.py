@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 import config
+from guardrails.fail_safe import evaluate_fail_safe
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +54,12 @@ class PromptGuardResult:
     probabilities: Dict[str, float] = field(default_factory=dict)
     latency_ms: float = 0.0
     reason: Optional[str] = None
+    safety_model_failed: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "is_safe": self.is_safe,
+            "safety_model_failed": self.safety_model_failed,
             "risk_score": round(self.risk_score, 4),
             "label": self.label,
             "probabilities": {k: round(v, 4) for k, v in self.probabilities.items()},
@@ -230,14 +233,7 @@ class PromptGuardDetector:
         )
         if results:
             return results[0]
-        return PromptGuardResult(
-            is_safe=True,
-            risk_score=0.0,
-            label="BENIGN",
-            probabilities={"BENIGN": 1.0, "INJECTION": 0.0, "JAILBREAK": 0.0},
-            latency_ms=0.0,
-        )
-
+        return self._fail_safe_result(text, mode=mode, latency_ms=0.0)
     def predict_batch(
         self,
         texts: List[str],
@@ -389,17 +385,12 @@ class PromptGuardDetector:
         except Exception as e:
             elapsed_ms = (time.perf_counter() - start_t) * 1000
             logger.error(f"Prompt-Guard batch inference error: {e}", exc_info=True)
-            return [
-                PromptGuardResult(
-                    is_safe=True,
-                    risk_score=0.0,
-                    label="BENIGN",
-                    probabilities={"BENIGN": 1.0, "INJECTION": 0.0, "JAILBREAK": 0.0},
-                    latency_ms=elapsed_ms / max(1, len(texts)),
-                    reason=f"Inference error ({e}) - failed open",
-                )
-                for _ in texts
-            ]
+            return [self._fail_safe_result(text, mode=mode, latency_ms=elapsed_ms / max(1, len(texts))) for text in texts]
+
+    def _fail_safe_result(self, text: str, mode: str = "prompt", latency_ms: float = 0.0) -> PromptGuardResult:
+        """Build a telemetry-rich deterministic result after model failure."""
+        safe, risk, label, probabilities, reason = evaluate_fail_safe(text, suspicious=self._is_suspicious_text(text))
+        return PromptGuardResult(is_safe=safe, risk_score=risk, label=label, probabilities=probabilities, latency_ms=latency_ms, reason=reason, safety_model_failed=True)
 
     def _is_suspicious_text(self, text: str) -> bool:
         """Fast regex pre-screening for indirect prompt injection signatures in context chunks."""

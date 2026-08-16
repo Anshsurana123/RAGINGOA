@@ -38,6 +38,7 @@ class GuardrailFlags(BaseModel):
     off_topic_detected: bool = False
     off_topic_distance: Optional[float] = None
     off_topic_reason: Optional[str] = None
+    safety_model_failed: bool = False
     grounding_passed: bool = True
     grounding_score: Optional[float] = None
     grounding_reason: Optional[str] = None
