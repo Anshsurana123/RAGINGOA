@@ -26,7 +26,7 @@ from pipeline.schemas import (
 )
 from retrieval.embed import get_embedder
 from retrieval.index_faiss import get_index_manager
-from retrieval.rerank import rerank_bm25_hybrid, rerank_cross_encoder
+from retrieval.rerank import rerank_bm25_hybrid, rerank_cross_encoder, get_cross_encoder
 from chunking.hybrid_merge import merge_and_fuse_candidates
 from guardrails.pre_retrieval import check_unsafe_content, check_off_topic_query
 from guardrails.prompt_guard import get_prompt_guard_detector
@@ -50,6 +50,8 @@ class RAGPipelineOrchestrator:
         self.stt_client = get_stt_client()
         self.llm_adapter = get_llm_adapter()
         self.answer_cache = get_answer_cache()
+        self.cross_encoder = get_cross_encoder()
+        self.prompt_guard = get_prompt_guard_detector()
 
     async def execute(self, request: QueryRequest) -> QueryResponse:
         """
@@ -241,70 +243,80 @@ class RAGPipelineOrchestrator:
         # -------------------------------------------------------------
         # STAGE 4.5: Concept-to-Language Matrix Cache Lookup (<1ms Fast Path)
         # -------------------------------------------------------------
-        cache_start_t = time.perf_counter()
-        cached_result = self.answer_cache.lookup(
-            query_text=raw_query_text,
-            query_vector=query_vector,
-            target_lang=target_lang,
-            cross_lingual=request.cross_lingual,
-            threshold=config.SEMANTIC_ANSWER_CACHE_THRESHOLD,
-        )
-        if cached_result:
-            cache_ms = round((time.perf_counter() - cache_start_t) * 1000, 2)
+        bypass_cache = getattr(request, "bypass_cache", False)
+        cached_result = None
+        if not bypass_cache:
+            cache_start_t = time.perf_counter()
+            cached_result = self.answer_cache.lookup(
+                query_text=raw_query_text,
+                query_vector=query_vector,
+                target_lang=target_lang,
+                cross_lingual=request.cross_lingual,
+                threshold=config.SEMANTIC_ANSWER_CACHE_THRESHOLD,
+            )
+            if cached_result:
+                cache_ms = round((time.perf_counter() - cache_start_t) * 1000, 2)
+                timings.append(StageTiming(
+                    stage="semantic_answer_cache",
+                    ms=cache_ms,
+                    success=True,
+                    details=f"Cache HIT ({cached_result['answer_source']}, lang={cached_result['target_lang']}, sim={cached_result['similarity']:.4f})",
+                ))
+                timings.append(StageTiming(
+                    stage="vector_retrieval_and_merge",
+                    ms=0.0,
+                    success=True,
+                    details="Bypassed due to semantic cache hit",
+                ))
+                timings.append(StageTiming(
+                    stage="reranking",
+                    ms=0.0,
+                    success=True,
+                    details="Bypassed due to semantic cache hit",
+                ))
+                timings.append(StageTiming(
+                    stage="generation",
+                    ms=0.0,
+                    success=True,
+                    details=f"Instant cached answer ({cached_result['answer_source']})",
+                ))
+                timings.append(StageTiming(
+                    stage="post_generation_grounding_guardrail",
+                    ms=0.0,
+                    success=True,
+                    details="Cached verified ground-truth",
+                ))
+                total_latency_ms = round((time.perf_counter() - start_pipeline_t) * 1000, 2)
+                cached_chunks = [
+                    RetrievedChunk(
+                        chunk_id=c.get("chunk_id", ""),
+                        text=c.get("text", ""),
+                        source_lang=c.get("source_lang", ""),
+                        chunk_strategy=c.get("chunk_strategy", "cached"),
+                        dense_score=round(float(c.get("dense_score", 1.0)), 4),
+                        final_score=round(float(c.get("final_score", 1.0)), 4),
+                    )
+                    for c in cached_result.get("retrieved_chunks", [])
+                ]
+                return QueryResponse(
+                    query=raw_query_text,
+                    transcript=transcript,
+                    language_detected=target_lang,
+                    answer=cached_result["answer"],
+                    answer_source=cached_result["answer_source"],
+                    retrieved_chunks=cached_chunks,
+                    guardrail_flags=guardrails.to_dict(),
+                    stage_timings=timings,
+                    retrieval_ms=cache_ms,
+                    total_ms=total_latency_ms,
+                )
+        else:
             timings.append(StageTiming(
                 stage="semantic_answer_cache",
-                ms=cache_ms,
-                success=True,
-                details=f"Cache HIT ({cached_result['answer_source']}, lang={cached_result['target_lang']}, sim={cached_result['similarity']:.4f})",
-            ))
-            timings.append(StageTiming(
-                stage="vector_retrieval_and_merge",
                 ms=0.0,
                 success=True,
-                details="Bypassed due to semantic cache hit",
+                details="Bypassed explicitly via bypass_cache=True",
             ))
-            timings.append(StageTiming(
-                stage="reranking",
-                ms=0.0,
-                success=True,
-                details="Bypassed due to semantic cache hit",
-            ))
-            timings.append(StageTiming(
-                stage="generation",
-                ms=0.0,
-                success=True,
-                details=f"Instant cached answer ({cached_result['answer_source']})",
-            ))
-            timings.append(StageTiming(
-                stage="post_generation_grounding_guardrail",
-                ms=0.0,
-                success=True,
-                details="Cached verified ground-truth",
-            ))
-            total_latency_ms = round((time.perf_counter() - start_pipeline_t) * 1000, 2)
-            cached_chunks = [
-                RetrievedChunk(
-                    chunk_id=c.get("chunk_id", ""),
-                    text=c.get("text", ""),
-                    source_lang=c.get("source_lang", ""),
-                    chunk_strategy=c.get("chunk_strategy", "cached"),
-                    dense_score=round(float(c.get("dense_score", 1.0)), 4),
-                    final_score=round(float(c.get("final_score", 1.0)), 4),
-                )
-                for c in cached_result.get("retrieved_chunks", [])
-            ]
-            return QueryResponse(
-                query=raw_query_text,
-                transcript=transcript,
-                language_detected=target_lang,
-                answer=cached_result["answer"],
-                answer_source=cached_result["answer_source"],
-                retrieved_chunks=cached_chunks,
-                guardrail_flags=guardrails.to_dict(),
-                stage_timings=timings,
-                retrieval_ms=cache_ms,
-                total_ms=total_latency_ms,
-            )
         
         # -------------------------------------------------------------
         # STAGE 5: Multi-Strategy FAISS Retrieval & Cross-Lingual Federation
@@ -724,6 +736,53 @@ class RAGPipelineOrchestrator:
             retrieval_ms=0.0,
             total_ms=total_ms,
         )
+
+
+    def warmup_pipeline(self) -> None:
+        """
+        Executes an end-to-end warmup sequence across all pipeline stages
+        to compile ONNX inference graphs, warm FAISS memory maps, and
+        eliminate cold-start JIT latency for live incoming traffic.
+        """
+        logger.info("Initializing full RAG pipeline warmup...")
+        start_w = time.perf_counter()
+        try:
+            # 1. Warm embedder with query and passage
+            q_vec = self.embedder.encode_queries("Warmup query for system initialization")
+            self.embedder.encode_passages(["Warmup passage for context embedding"])
+            
+            # 2. Warm FAISS search across strategies
+            for strat_idx in self.index_manager.indexes.values():
+                strat_idx.search(q_vec, target_lang="en", top_k=3)
+                
+            # 3. Warm Cross-Encoder
+            if self.cross_encoder is not None:
+                self.cross_encoder.score_pairs("warmup query", ["warmup candidate passage"])
+                
+            # 4. Warm Prompt-Guard
+            if self.prompt_guard is not None:
+                self.prompt_guard.warmup()
+                
+            # 5. Run end-to-end mock execution
+            mock_req = QueryRequest(
+                text="Who was the director of the Manhattan Project?",
+                language_hint="en",
+                cross_lingual=False,
+                bypass_cache=True,
+            )
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(self.execute(mock_req))
+                else:
+                    loop.run_until_complete(self.execute(mock_req))
+            except RuntimeError:
+                asyncio.run(self.execute(mock_req))
+            
+            elapsed = (time.perf_counter() - start_w) * 1000
+            logger.info(f"RAG pipeline warmup completed in {elapsed:.2f}ms. System ready.")
+        except Exception as e:
+            logger.warning(f"RAG pipeline warmup encountered non-fatal exception: {e}")
 
 
 _ORCHESTRATOR_INSTANCE: Optional[RAGPipelineOrchestrator] = None

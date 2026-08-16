@@ -116,11 +116,11 @@ with gr.Blocks(title="🌴 Hacker House Goa 2026 — Voice Indic RAG", css=CUSTO
     dummy_btn.click(fn=_dummy_zerogpu)
 
 
-# Preload embedding model and index manager at startup
-print("[Space Startup] Preloading embedding model and FAISS vector indexes...")
-get_embedder()
-get_index_manager()
-print("[Space Startup] Models and FAISS indexes preloaded successfully.")
+# Preload models and perform full pipeline warmup at startup
+print("[Space Startup] Preloading embedding model, FAISS indexes, and warming up pipeline...")
+orchestrator = get_orchestrator()
+orchestrator.warmup_pipeline()
+print("[Space Startup] Full RAG pipeline preloaded and warmed up successfully.")
 
 
 # Attach FastAPI endpoints directly to demo.app
@@ -181,6 +181,7 @@ async def query_pipeline(
     text: Optional[str] = Form(None),
     language_hint: Optional[str] = Form(None),
     cross_lingual: Optional[Any] = Form(None),
+    bypass_cache: Optional[Any] = Form(None),
     request_body: Optional[QueryRequest] = None,
 ) -> QueryResponse:
     """
@@ -189,6 +190,7 @@ async def query_pipeline(
     orchestrator = get_orchestrator()
     temp_audio_path = None
     is_cross_lingual = _parse_bool(cross_lingual, default=False)
+    is_bypass_cache = _parse_bool(bypass_cache, default=False)
     
     try:
         if request_body and (request_body.text or request_body.audio_path):
@@ -204,6 +206,7 @@ async def query_pipeline(
                 audio_path=temp_audio_path,
                 language_hint=language_hint,
                 cross_lingual=is_cross_lingual,
+                bypass_cache=is_bypass_cache,
             )
             return await orchestrator.execute(req)
             
@@ -212,6 +215,7 @@ async def query_pipeline(
                 text=text.strip(),
                 language_hint=language_hint,
                 cross_lingual=is_cross_lingual,
+                bypass_cache=is_bypass_cache,
             )
             return await orchestrator.execute(req)
             

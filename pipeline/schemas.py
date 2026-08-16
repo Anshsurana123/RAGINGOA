@@ -49,6 +49,7 @@ class QueryRequest(BaseModel):
     text: Optional[str] = None  # Text bypass for benchmark / testing
     language_hint: Optional[str] = None
     cross_lingual: bool = False  # Multilingual federation across all indexed corpora (default: False)
+    bypass_cache: bool = False  # Bypass semantic cache to measure cold-start retrieval latency
 
 
 class QueryResponse(BaseModel):

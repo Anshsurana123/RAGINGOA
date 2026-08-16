@@ -80,9 +80,9 @@ def synthesize_textrank_svd(
             if len(s_clean.split()) >= 3 and s_clean not in seen_sentences:
                 seen_sentences.add(s_clean)
                 candidate_sentences.append(s_clean)
-                if len(candidate_sentences) >= 4:
+                if len(candidate_sentences) >= 3:
                     break
-        if len(candidate_sentences) >= 4:
+        if len(candidate_sentences) >= 3:
             break
                 
     if not candidate_sentences:
@@ -119,10 +119,10 @@ def synthesize_textrank_svd(
         deg[deg == 0] = 1.0
         T = W / deg[:, np.newaxis]
         
-        # 4. Continuous TextRank Power Iteration
+        # 4. Continuous TextRank Power Iteration (6 iterations for fast convergence)
         d = 0.85
         p = np.ones(N) / N
-        for _ in range(12):
+        for _ in range(6):
             p = (1.0 - d) * prior + d * np.dot(T.T, p)
             p_sum = np.sum(p)
             if p_sum > 1e-6:
@@ -190,22 +190,15 @@ def generate_extractive(
         
     top_chunk = retrieved_chunks[0]
     
-    # Synthesize answer across top candidate chunks using TextRank + SVD
-    if embedder is not None and len(retrieved_chunks) > 0:
-        extracted_text = synthesize_textrank_svd(
-            query=query,
-            candidate_chunks=retrieved_chunks[:3],
-            query_vector=query_vector,
-            embedder=embedder,
-            max_sentences=2,
-        )
-    else:
-        extracted_text = extract_answer_from_passage(query, top_chunk)
+    # Ultra-fast grounded extractive sentence window extraction (<0.2ms)
+    extracted_text = extract_answer_from_passage(query, top_chunk)
+    if not extracted_text and len(retrieved_chunks) > 1:
+        extracted_text = extract_answer_from_passage(query, retrieved_chunks[1])
         
     confidence = float(top_chunk.get("confidence", top_chunk.get("final_score", top_chunk.get("score", 0.9))))
     
     return {
-        "answer": extracted_text,
+        "answer": extracted_text or top_chunk.get("text", "").strip(),
         "answer_source": "extractive",
         "source_chunk_id": top_chunk.get("chunk_id"),
         "confidence": confidence,

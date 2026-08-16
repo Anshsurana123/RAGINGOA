@@ -99,15 +99,15 @@ class ONNXCrossEncoderRanker:
         except Exception as e:
             logger.warning(f"ONNX CrossEncoder export failed: {e}. PyTorch fallback will be used.")
 
-    def score_pairs(self, query: str, passages: List[str], max_length: int = 96) -> np.ndarray:
+    def score_pairs(self, query: str, passages: List[str], max_length: int = 80) -> np.ndarray:
         """
         Scores (query, passage) pairs using ONNX Runtime with Context Bounding.
         """
         if not passages:
             return np.array([], dtype=np.float32)
             
-        bound_len = min(max_length, getattr(config, "CONTEXT_BOUNDING_MAX_TOKENS", 128))
-        pairs = [[query, p] for p in passages]
+        bound_len = min(max_length, getattr(config, "CONTEXT_BOUNDING_MAX_TOKENS", 80))
+        pairs = [[query, p[:200]] for p in passages]
         
         inputs = self.tokenizer(
             pairs,
