@@ -327,7 +327,8 @@ def rerank_bm25_hybrid(
             if matched > 0:
                 confidence = (dense_val * 0.70) + (0.30 * min(1.0, overlap + 0.2))
             else:
-                confidence = dense_val * 0.75
+                # Same-script passage with 0 lexical overlap gets penalized confidence
+                confidence = dense_val * 0.60
         
         item = cand.copy()
         item["dense_score"] = dense_val
@@ -339,6 +340,18 @@ def rerank_bm25_hybrid(
         
     # Sort by calibrated confidence descending, breaking ties with final_score
     reranked = sorted(reranked, key=lambda x: (x["confidence"], x["final_score"]), reverse=True)
+    
+    # Compute retrieval peak-to-baseline margin
+    if len(reranked) >= 3:
+        top1_dense = reranked[0].get("dense_score", 0.0)
+        tail_dense = np.mean([c.get("dense_score", 0.0) for c in reranked[2:min(10, len(reranked))]])
+        retrieval_margin = float(top1_dense - tail_dense)
+    else:
+        retrieval_margin = 0.05
+        
+    for c in reranked:
+        c["retrieval_margin"] = round(retrieval_margin, 4)
+        
     return reranked[:top_k]
 
 
@@ -349,10 +362,16 @@ def rerank_cross_encoder(
 ) -> List[Dict[str, Any]]:
     """
     Applies deep cross-attention re-ranking over candidate passages.
-    Attaches `cross_encoder_score` and recalibrates ranking.
+    ms-marco-MiniLM-L-6-v2 is Latin-optimized, so cross-encoder scoring is applied
+    on Latin/English queries while Indic queries retain their calibrated BM25-dense hybrid scores.
     """
     if not candidates:
         return []
+        
+    # Only run English MiniLM Cross-Encoder on Latin queries to prevent token [UNK] degradation
+    q_script = detect_script(query_text)
+    if q_script != "Latn":
+        return candidates[:top_k]
         
     try:
         ranker = get_cross_encoder()
@@ -372,7 +391,7 @@ def rerank_cross_encoder(
             
             # Recalibrate composite confidence blending cross-encoder with dense score
             dense_val = float(c.get("dense_score", 0.5))
-            c["confidence"] = round(0.70 * sig_ce + 0.30 * dense_val, 4)
+            c["confidence"] = round(0.60 * sig_ce + 0.40 * dense_val, 4)
             c["final_score"] = round(raw_ce, 4)
             scored_candidates.append(c)
             

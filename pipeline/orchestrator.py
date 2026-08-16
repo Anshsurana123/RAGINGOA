@@ -389,6 +389,7 @@ class RAGPipelineOrchestrator:
         top_chunk = reranked_chunks[0] if reranked_chunks else None
         top_conf = float(top_chunk.get("confidence", top_chunk.get("dense_score", 0.0))) if top_chunk else 0.0
         top_ce_score = float(top_chunk.get("cross_encoder_score", 0.0)) if top_chunk and "cross_encoder_score" in top_chunk else None
+        top_margin = float(top_chunk.get("retrieval_margin", 0.05)) if top_chunk else 0.05
         
         is_disqualified = False
         disqualify_reason = ""
@@ -396,7 +397,7 @@ class RAGPipelineOrchestrator:
         if not reranked_chunks:
             is_disqualified = True
             disqualify_reason = "Declined: no candidate passages available"
-        elif top_ce_score is not None and top_ce_score < getattr(config, "CROSS_ENCODER_THRESHOLD", -0.5):
+        elif top_ce_score is not None and top_ce_score < getattr(config, "CROSS_ENCODER_THRESHOLD", -2.5):
             is_disqualified = True
             disqualify_reason = (
                 f"Declined: top cross-encoder relevance ({top_ce_score:.4f}) below threshold "
@@ -407,6 +408,12 @@ class RAGPipelineOrchestrator:
             disqualify_reason = (
                 f"Declined: top retrieval confidence ({top_conf:.4f}) below calibrated "
                 f"minimum threshold ({config.MIN_CONFIDENT_MATCH_SCORE:.4f})"
+            )
+        elif top_conf < getattr(config, "RETRIEVAL_HIGH_CONFIDENCE_THRESHOLD", 0.84) and top_margin < getattr(config, "RETRIEVAL_MIN_MARGIN", 0.015):
+            is_disqualified = True
+            disqualify_reason = (
+                f"Declined: flat candidate score distribution (margin={top_margin:.4f} < {config.RETRIEVAL_MIN_MARGIN}) "
+                f"indicating ungrounded background noise"
             )
         
         if is_disqualified:
@@ -559,7 +566,6 @@ class RAGPipelineOrchestrator:
         
         # -------------------------------------------------------------
         # STAGE 8: Post-Generation Grounding & LLM Safety Refusal Guardrail
-
         # -------------------------------------------------------------
         ground_start_t = time.perf_counter()
         is_grounded, ground_score, final_answer, ground_reason = check_grounding(
@@ -567,6 +573,8 @@ class RAGPipelineOrchestrator:
             retrieved_chunks=reranked_chunks,
             threshold=config.GROUNDING_OVERLAP_THRESHOLD,
             embedder=self.embedder,
+            query=raw_query_text,
+            query_vector=query_vector,
         )
         
         guardrails.grounding_passed = is_grounded
@@ -578,6 +586,8 @@ class RAGPipelineOrchestrator:
             guardrails.unsafe_reason = ground_reason
             answer_source = "declined"
         elif not is_grounded:
+            guardrails.off_topic_detected = True
+            guardrails.off_topic_reason = ground_reason
             answer_source = "declined"
             
         timings.append(StageTiming(

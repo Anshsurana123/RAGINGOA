@@ -1,9 +1,9 @@
 # ⚡ Indic RAG Speed Benchmark: 50 Questions Per Language (750 Queries Total)
 
-**Benchmark Timestamp**: `2026-08-16T02:03:55Z`  
+**Benchmark Timestamp**: `2026-08-16T05:27:38Z`  
 **Hardware Environment**: `8 vCPUs | 15.78 GB RAM | Windows 11 (AMD64)`  
 **Total In-Scope Queries Processed**: `750` across **15 Languages**  
-**Total Benchmark Execution Time**: `14.50 seconds` (`51.7 Queries/sec`)  
+**Total Benchmark Execution Time**: `107.85 seconds` (`7.0 Queries/sec`)  
 
 ---
 
@@ -11,8 +11,8 @@
 
 | Metric Scope | Target SLA | P50 (Median) | P70 | P90 | P99 | Mean | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Retrieval Stage (FAISS + BM25/Cross-Encoder)** | **~200 ms** | **0.84 ms** | **0.90 ms** | **1.09 ms** | **2.46 ms** | **1.54 ms** | ✅ PASS (<200ms) |
-| **Full End-to-End Pipeline Latency** | — | **16.45 ms** | **18.27 ms** | **23.78 ms** | **57.71 ms** | **19.22 ms** | ⚡ ULTRA-FAST |
+| **Retrieval Stage (FAISS + BM25/Cross-Encoder)** | **~200 ms** | **26.16 ms** | **30.03 ms** | **40.42 ms** | **135.82 ms** | **30.43 ms** | ✅ PASS (<200ms) |
+| **Full End-to-End Pipeline Latency** | — | **133.88 ms** | **152.78 ms** | **199.43 ms** | **305.45 ms** | **143.59 ms** | ⚡ ULTRA-FAST |
 
 ---
 
@@ -20,11 +20,11 @@
 
 | Pipeline Stage | P50 (ms) | P70 (ms) | P90 (ms) | P99 (ms) | Mean (ms) | Speedup Technology |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1. Query Embedding** | 15.18 ms | 17.01 ms | 22.14 ms | 46.44 ms | 16.82 ms | ONNX FP32 Dynamic Shapes (4 CPU threads) |
-| **2. Multi-Strategy FAISS Search** | 0.00 ms | 0.00 ms | 0.00 ms | 0.00 ms | 0.00 ms | HNSW Index + search_k Candidate Slicing |
-| **3. BM25 & Cross-Encoder Re-ranking** | 108.49 ms | 147.18 ms | 185.87 ms | 203.29 ms | 140.36 ms | ONNX Cross-Encoder + Context Bounding |
-| **4. Context Synthesis (Non-LLM)** | 0.00 ms | 0.00 ms | 0.00 ms | 0.00 ms | 0.58 ms | Continuous TextRank + SVD Energy Decomposition |
-| **5. Post-Gen Grounding Guardrail** | 0.00 ms | 0.00 ms | 0.00 ms | 0.00 ms | 0.00 ms | Vectorized Token Substring Overlap |
+| **1. Query Embedding** | 15.75 ms | 18.07 ms | 24.02 ms | 37.56 ms | 17.65 ms | ONNX FP32 Dynamic Shapes (4 CPU threads) |
+| **2. Multi-Strategy FAISS Search** | 0.86 ms | 0.93 ms | 1.19 ms | 2.55 ms | 0.96 ms | HNSW Index + search_k Candidate Slicing |
+| **3. BM25 & Cross-Encoder Re-ranking** | 7.72 ms | 9.70 ms | 14.99 ms | 115.57 ms | 14.52 ms | ONNX Cross-Encoder + Context Bounding |
+| **4. Context Synthesis (Non-LLM)** | 0.19 ms | 0.23 ms | 0.39 ms | 2.15 ms | 0.28 ms | Continuous TextRank + SVD Energy Decomposition |
+| **5. Post-Gen Grounding Guardrail** | 42.97 ms | 52.48 ms | 72.10 ms | 103.22 ms | 46.33 ms | Vectorized Token Substring Overlap |
 
 ---
 
@@ -32,21 +32,21 @@
 
 | Language | Code | Queries | P50 (ms) | P70 (ms) | P90 (ms) | P99 (ms) | Mean (ms) | Throughput (QPS) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Assamese** | `as` | 50 | **16.99 ms** | 20.12 ms | 27.05 ms | 47.37 ms | 19.21 ms | **52.1 req/s** |
-| **Bengali** | `bn` | 50 | **16.45 ms** | 18.49 ms | 29.32 ms | 159.43 ms | 23.37 ms | **42.8 req/s** |
-| **Gujarati** | `gu` | 50 | **16.59 ms** | 17.93 ms | 21.12 ms | 33.96 ms | 17.33 ms | **57.7 req/s** |
-| **Hindi** | `hi` | 50 | **15.21 ms** | 16.95 ms | 20.37 ms | 167.39 ms | 21.75 ms | **46.0 req/s** |
-| **Kannada** | `kn` | 50 | **17.80 ms** | 19.34 ms | 28.86 ms | 49.12 ms | 19.96 ms | **50.1 req/s** |
-| **Malayalam** | `ml` | 50 | **16.54 ms** | 18.18 ms | 21.51 ms | 31.17 ms | 17.47 ms | **57.2 req/s** |
-| **Marathi** | `mr` | 50 | **15.91 ms** | 17.39 ms | 22.65 ms | 57.96 ms | 18.01 ms | **55.5 req/s** |
-| **Nepali** | `ne` | 50 | **16.18 ms** | 18.08 ms | 25.56 ms | 61.06 ms | 19.08 ms | **52.4 req/s** |
-| **Odia** | `or` | 50 | **16.52 ms** | 18.38 ms | 25.43 ms | 37.69 ms | 18.38 ms | **54.4 req/s** |
-| **Punjabi** | `pa` | 50 | **16.51 ms** | 17.77 ms | 23.93 ms | 31.05 ms | 17.76 ms | **56.3 req/s** |
-| **Sanskrit** | `sa` | 50 | **17.51 ms** | 19.50 ms | 27.20 ms | 56.69 ms | 19.83 ms | **50.4 req/s** |
-| **Tamil** | `ta` | 50 | **16.44 ms** | 18.83 ms | 20.91 ms | 37.12 ms | 17.76 ms | **56.3 req/s** |
-| **Telugu** | `te` | 50 | **16.45 ms** | 17.17 ms | 20.06 ms | 23.18 ms | 16.42 ms | **60.9 req/s** |
-| **Urdu** | `ur` | 50 | **15.95 ms** | 16.96 ms | 19.20 ms | 25.35 ms | 16.33 ms | **61.2 req/s** |
-| **English** | `en` | 50 | **16.00 ms** | 18.26 ms | 25.26 ms | 223.99 ms | 25.61 ms | **39.0 req/s** |
+| **Assamese** | `as` | 50 | **130.59 ms** | 155.13 ms | 213.86 ms | 348.07 ms | 143.63 ms | **7.0 req/s** |
+| **Bengali** | `bn` | 50 | **137.57 ms** | 165.54 ms | 200.27 ms | 269.03 ms | 147.35 ms | **6.8 req/s** |
+| **Gujarati** | `gu` | 50 | **134.91 ms** | 150.68 ms | 174.91 ms | 240.07 ms | 139.60 ms | **7.2 req/s** |
+| **Hindi** | `hi` | 50 | **127.37 ms** | 137.69 ms | 162.74 ms | 220.45 ms | 132.43 ms | **7.5 req/s** |
+| **Kannada** | `kn` | 50 | **127.27 ms** | 145.91 ms | 177.61 ms | 208.14 ms | 133.08 ms | **7.5 req/s** |
+| **Malayalam** | `ml` | 50 | **131.64 ms** | 148.09 ms | 167.36 ms | 191.55 ms | 133.06 ms | **7.5 req/s** |
+| **Marathi** | `mr` | 50 | **137.38 ms** | 150.72 ms | 177.14 ms | 240.95 ms | 144.29 ms | **6.9 req/s** |
+| **Nepali** | `ne` | 50 | **134.89 ms** | 152.53 ms | 180.26 ms | 214.23 ms | 141.53 ms | **7.1 req/s** |
+| **Odia** | `or` | 50 | **157.96 ms** | 189.12 ms | 218.26 ms | 244.86 ms | 164.09 ms | **6.1 req/s** |
+| **Punjabi** | `pa` | 50 | **132.93 ms** | 147.31 ms | 174.90 ms | 236.32 ms | 141.09 ms | **7.1 req/s** |
+| **Sanskrit** | `sa` | 50 | **128.00 ms** | 147.32 ms | 175.39 ms | 245.17 ms | 128.94 ms | **7.8 req/s** |
+| **Tamil** | `ta` | 50 | **122.65 ms** | 129.76 ms | 143.01 ms | 167.24 ms | 120.74 ms | **8.3 req/s** |
+| **Telugu** | `te` | 50 | **119.31 ms** | 126.98 ms | 141.70 ms | 157.26 ms | 116.38 ms | **8.6 req/s** |
+| **Urdu** | `ur` | 50 | **124.09 ms** | 142.02 ms | 160.83 ms | 213.33 ms | 129.47 ms | **7.7 req/s** |
+| **English** | `en` | 50 | **224.09 ms** | 248.12 ms | 309.61 ms | 430.03 ms | 238.18 ms | **4.2 req/s** |
 
 ---
 
