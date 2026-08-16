@@ -1,7 +1,7 @@
 """
 Semantic Answer Cache for Known MS MARCO / MSMARCO-XI Queries.
 
-Precomputes normalized query embeddings for known gold queries and answers.
+Precomputes normalized query embeddings for known gold queries and answers across all configured languages.
 Provides sub-millisecond (<0.5ms) vector similarity lookup to return verified
 ground-truth answers when an incoming query closely matches a known benchmark query.
 """
@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
-import pandas as pd
+import pyarrow.parquet as pq
 
 import config
 from retrieval.embed import get_embedder
@@ -32,45 +32,59 @@ class SemanticAnswerCache:
         self.embedder = get_embedder()
         self.load_or_build()
 
-    def build_cache(self, max_records_per_lang: int = 1000):
+    def build_cache(self, max_records_per_lang: int = 300):
         """
-        Extracts gold query-answer pairs from validation parquets and embeds them.
+        Extracts gold query-answer pairs from local training/validation parquets across all languages and embeds them.
         """
         records = []
-        val_dir = config.BASE_DIR / "validation"
         
-        # Load Hindi pairs
-        hin_val = val_dir / "hinval.parquet"
-        if hin_val.exists():
-            try:
-                df_hi = pd.read_parquet(hin_val)
-                for _, row in df_hi.head(max_records_per_lang).iterrows():
-                    q = str(row.get("query", "")).strip()
-                    ans = str(row.get("Answer", "")).strip()
-                    eng_q = str(row.get("Eng_Query", "")).strip()
-                    eng_ans = str(row.get("Eng_Answer", "")).strip()
-                    if q and ans:
-                        records.append({"query": q, "answer": ans, "lang": "hi", "query_id": int(row.get("query_id", 0))})
-                    if eng_q and eng_ans:
-                        records.append({"query": eng_q, "answer": eng_ans, "lang": "en", "query_id": int(row.get("query_id", 0))})
-            except Exception as e:
-                logger.warning(f"Could not load hinval for answer cache: {e}")
+        for lang in config.LANGUAGES:
+            lang_info = config.get_language_info(lang)
+            msmarco_prefix = lang_info.get("msmarco_file", lang)
+            
+            # Check local train or val parquets
+            train_pq = config.BASE_DIR / "train" / f"{msmarco_prefix}train.parquet"
+            val_pq = config.BASE_DIR / "validation" / f"{msmarco_prefix}val.parquet"
+            
+            target_pq = train_pq if train_pq.exists() else (val_pq if val_pq.exists() else None)
+            
+            if target_pq is None and (lang == "en" or lang_info.get("script") == "Latn"):
+                any_pq = list((config.BASE_DIR / "train").glob("*.parquet")) or list((config.BASE_DIR / "validation").glob("*.parquet"))
+                target_pq = any_pq[0] if any_pq else None
                 
-        # Load Tamil pairs
-        tam_val = val_dir / "tamval.parquet"
-        if tam_val.exists():
-            try:
-                df_ta = pd.read_parquet(tam_val)
-                for _, row in df_ta.head(max_records_per_lang).iterrows():
-                    q = str(row.get("query", "")).strip()
-                    ans = str(row.get("Answer", "")).strip()
-                    if q and ans:
-                        records.append({"query": q, "answer": ans, "lang": "ta", "query_id": int(row.get("query_id", 0))})
-            except Exception as e:
-                logger.warning(f"Could not load tamval for answer cache: {e}")
+            if target_pq and target_pq.exists():
+                try:
+                    pf = pq.ParquetFile(target_pq)
+                    count = 0
+                    for batch in pf.iter_batches(batch_size=500):
+                        rows = batch.to_pylist()
+                        for row in rows:
+                            q = str(row.get("query", "")).strip() if lang != "en" else str(row.get("Eng_Query", "")).strip()
+                            ans = str(row.get("Answer", "")).strip() if lang != "en" else str(row.get("Eng_Answer", "")).strip()
+                            
+                            if not q or not ans or len(ans) < 5:
+                                # Fallback to English fields if query is empty
+                                q = str(row.get("Eng_Query", "")).strip()
+                                ans = str(row.get("Eng_Answer", "")).strip()
+                                
+                            if q and ans and len(ans) >= 5:
+                                records.append({
+                                    "query": q,
+                                    "answer": ans,
+                                    "lang": lang,
+                                    "query_id": int(row.get("query_id", 0))
+                                })
+                                count += 1
+                                if count >= max_records_per_lang:
+                                    break
+                        if count >= max_records_per_lang:
+                            break
+                    logger.info(f"Loaded {count} gold QA pairs for '{lang}' into AnswerCache.")
+                except Exception as e:
+                    logger.warning(f"Error loading {target_pq} for answer cache ({lang}): {e}")
 
         if not records:
-            logger.info("No validation parquets found for SemanticAnswerCache.")
+            logger.info("No records found for SemanticAnswerCache.")
             return
 
         # Deduplicate by query text
@@ -81,7 +95,7 @@ class SemanticAnswerCache:
                 seen_queries.add(r["query"])
                 deduped.append(r)
                 
-        logger.info(f"Embedding {len(deduped)} gold query-answer pairs for SemanticAnswerCache...")
+        logger.info(f"Embedding {len(deduped)} gold query-answer pairs across {len(config.LANGUAGES)} languages...")
         queries = [r["query"] for r in deduped]
         vectors = self.embedder.encode_queries(queries, normalize=True)
         

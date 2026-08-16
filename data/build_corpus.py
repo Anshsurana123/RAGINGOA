@@ -2,7 +2,7 @@
 Builds deduplicated passage corpora for all configured languages.
 
 Strict Extensibility Requirement:
-This script iterates over `config.LANGUAGES`.
+This script iterates dynamically over `config.LANGUAGES`.
 No language codes are hardcoded in this logic.
 """
 
@@ -12,7 +12,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Set, Any
-import pandas as pd
+import pyarrow.parquet as pq
 
 # Ensure project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -20,6 +20,23 @@ import config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def stream_parquet_records(parquet_path: Path, max_records: int) -> List[Dict[str, Any]]:
+    """
+    Stream records safely from large Parquet files using PyArrow batches.
+    Avoids nested conversion memory spikes and errors.
+    """
+    records = []
+    pf = pq.ParquetFile(parquet_path)
+    for batch in pf.iter_batches(batch_size=1000):
+        rows = batch.to_pylist()
+        records.extend(rows)
+        if len(records) >= max_records:
+            records = records[:max_records]
+            break
+    return records
+
 
 def load_raw_dataset_for_lang(lang: str, max_queries: int = 6000) -> List[Dict[str, Any]]:
     """
@@ -32,79 +49,79 @@ def load_raw_dataset_for_lang(lang: str, max_queries: int = 6000) -> List[Dict[s
     # 1. Check local cache in data/raw/<lang>/
     local_raw_dir = config.RAW_DATA_DIR / lang
     local_raw_dir.mkdir(parents=True, exist_ok=True)
-    raw_parquet_cache = local_raw_dir / "raw_queries.parquet"
+    raw_json_cache = local_raw_dir / "raw_queries.json"
     
-    if raw_parquet_cache.exists():
-        logger.info(f"Loading cached raw data for '{lang}' from {raw_parquet_cache}")
-        df = pd.read_parquet(raw_parquet_cache)
-        return df.to_dict(orient="records")
-    
-    # 2. Check local validation/train directory in workspace if available
-    local_val_parquet = config.BASE_DIR / "validation" / f"{msmarco_prefix}val.parquet"
+    if raw_json_cache.exists():
+        logger.info(f"Loading cached raw data for '{lang}' from {raw_json_cache}")
+        try:
+            with open(raw_json_cache, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+            
+    # 2. Check local train / validation directory in workspace
     local_train_parquet = config.BASE_DIR / "train" / f"{msmarco_prefix}train.parquet"
+    local_val_parquet = config.BASE_DIR / "validation" / f"{msmarco_prefix}val.parquet"
     
-    df = None
-    if local_val_parquet.exists():
-        logger.info(f"Loading local parquet for '{lang}' from {local_val_parquet}")
-        df = pd.read_parquet(local_val_parquet)
-    elif local_train_parquet.exists():
-        logger.info(f"Loading local train parquet for '{lang}' from {local_train_parquet}")
-        df = pd.read_parquet(local_train_parquet)
+    records = []
+    if local_train_parquet.exists():
+        logger.info(f"Streaming local train parquet for '{lang}' from {local_train_parquet} (limit: {max_queries})...")
+        records = stream_parquet_records(local_train_parquet, max_records=max_queries)
+    elif local_val_parquet.exists():
+        logger.info(f"Streaming local val parquet for '{lang}' from {local_val_parquet} (limit: {max_queries})...")
+        records = stream_parquet_records(local_val_parquet, max_records=max_queries)
+    elif lang == "en" or lang_info.get("script") == "Latn":
+        # Stream English fields from any available training parquet
+        available_parquets = list((config.BASE_DIR / "train").glob("*.parquet")) or list((config.BASE_DIR / "validation").glob("*.parquet"))
+        if available_parquets:
+            logger.info(f"Streaming English fields from {available_parquets[0]} for '{lang}'...")
+            records = stream_parquet_records(available_parquets[0], max_records=max_queries)
     else:
-        # Fallback: Check if we have any other indic parquet to read English from if lang == en
-        any_val_parquets = list((config.BASE_DIR / "validation").glob("*val.parquet"))
-        if any_val_parquets and lang_info.get("script") == "Latn":
-            logger.info(f"Using English fields from local dataset {any_val_parquets[0]} for '{lang}'")
-            df = pd.read_parquet(any_val_parquets[0])
-        else:
-            # 3. Pull from Hugging Face
-            try:
-                from datasets import load_dataset
-                logger.info(f"Downloading dataset for language '{lang}' from Hugging Face...")
-                if lang == "en":
-                    ds = load_dataset("ms_marco", "v1.1", split=f"validation[:{max_queries}]")
-                    records = []
-                    for row in ds:
-                        records.append({
-                            "query": row["query"],
-                            "Answer": row["answers"][0] if row.get("answers") else "",
-                            "query_id": row["query_id"],
-                            "query_type": row.get("query_type", "DESCRIPTION"),
-                            "passages": {
-                                "is_selected": row["passages"]["is_selected"],
-                                "English_passages": row["passages"]["passage_text"],
-                                "Translated_passages": row["passages"]["passage_text"],
-                            },
-                            "Eng_Query": row["query"],
-                            "Eng_Answer": row["answers"][0] if row.get("answers") else "",
-                        })
-                    df = pd.DataFrame(records)
-                else:
-                    ds = load_dataset("ai4bharat/MSMARCO-XI", lang, split=f"validation[:{max_queries}]")
-                    df = pd.DataFrame(ds)
-            except Exception as e:
-                logger.warning(f"Could not download directly from Hugging Face for '{lang}': {e}")
-                # Fallback to local files if available
-                if any_val_parquets:
-                    df = pd.read_parquet(any_val_parquets[0])
-                else:
-                    raise RuntimeError(f"Unable to load data for language '{lang}'")
-    
-    if df is not None:
-        if len(df) > max_queries:
-            df = df.iloc[:max_queries]
-        # Cache raw dataframe locally
-        df.to_parquet(raw_parquet_cache, index=False)
-        logger.info(f"Saved raw data cache ({len(df)} queries) to {raw_parquet_cache}")
-        return df.to_dict(orient="records")
-    
-    return []
+        # Fallback: Pull from Hugging Face
+        try:
+            from datasets import load_dataset
+            logger.info(f"Downloading dataset for language '{lang}' from Hugging Face...")
+            if lang == "en":
+                ds = load_dataset("ms_marco", "v1.1", split=f"validation[:{max_queries}]")
+                for row in ds:
+                    records.append({
+                        "query": row["query"],
+                        "Answer": row["answers"][0] if row.get("answers") else "",
+                        "query_id": row["query_id"],
+                        "query_type": row.get("query_type", "DESCRIPTION"),
+                        "passages": {
+                            "is_selected": row["passages"]["is_selected"],
+                            "English_passages": row["passages"]["passage_text"],
+                            "Translated_passages": row["passages"]["passage_text"],
+                        },
+                        "Eng_Query": row["query"],
+                        "Eng_Answer": row["answers"][0] if row.get("answers") else "",
+                    })
+            else:
+                ds = load_dataset("ai4bharat/MSMARCO-XI", lang, split=f"validation[:{max_queries}]")
+                records = list(ds)
+        except Exception as e:
+            logger.warning(f"Could not download directly from Hugging Face for '{lang}': {e}")
+            raise RuntimeError(f"Unable to load data for language '{lang}'")
+
+    if records:
+        if len(records) > max_queries:
+            records = records[:max_queries]
+        try:
+            with open(raw_json_cache, "w", encoding="utf-8") as f:
+                json.dump(records, f, ensure_ascii=False)
+            logger.info(f"Saved raw data cache ({len(records)} queries) to {raw_json_cache}")
+        except Exception as e:
+            logger.warning(f"Could not cache raw queries to {raw_json_cache}: {e}")
+            
+    return records
+
 
 def extract_and_deduplicate_passages(
     lang: str, raw_records: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """
-    Flatten and deduplicate passages across thousands of queries into a clean corpus.
+    Flatten and deduplicate passages across queries into a clean corpus.
     Attaches passage_id, text, source_lang, source_query_ids, and is_selected.
     """
     lang_info = config.get_language_info(lang)
@@ -172,9 +189,10 @@ def extract_and_deduplicate_passages(
     )
     return deduped_passages
 
+
 def build_all_corpora(max_queries_per_lang: int = 5000) -> Dict[str, int]:
     """
-    Iterates over config.LANGUAGES and builds deduplicated passage corpora.
+    Iterates dynamically over config.LANGUAGES and builds deduplicated passage corpora.
     Returns dictionary of language -> corpus passage count.
     """
     results = {}
@@ -194,6 +212,7 @@ def build_all_corpora(max_queries_per_lang: int = 5000) -> Dict[str, int]:
         results[lang] = len(corpus)
         
     return results
+
 
 if __name__ == "__main__":
     build_all_corpora()

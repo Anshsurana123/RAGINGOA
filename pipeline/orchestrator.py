@@ -514,6 +514,10 @@ class RAGPipelineOrchestrator:
         cleaned = text.strip() if text else ""
         
         # 2. Auto-detection from Indic native Unicode scripts
+        # Check for specific Assamese characters first
+        if any(c in cleaned for c in ["\u09f0", "\u09f1"]) and "as" in config.LANGUAGES:
+            return "as"
+
         for char in cleaned:
             code = ord(char)
             # Devanagari (Hindi, Marathi, Sanskrit, Nepali)
@@ -521,15 +525,27 @@ class RAGPipelineOrchestrator:
                 for cand in ["hi", "mr", "ne", "sa"]:
                     if cand in config.LANGUAGES:
                         return cand
-            # Tamil
-            elif 0x0B80 <= code <= 0x0BFF:
-                if "ta" in config.LANGUAGES:
-                    return "ta"
             # Bengali / Assamese
             elif 0x0980 <= code <= 0x09FF:
                 for cand in ["bn", "as"]:
                     if cand in config.LANGUAGES:
                         return cand
+            # Gurmukhi / Punjabi
+            elif 0x0A00 <= code <= 0x0A7F:
+                if "pa" in config.LANGUAGES:
+                    return "pa"
+            # Gujarati
+            elif 0x0A80 <= code <= 0x0AFF:
+                if "gu" in config.LANGUAGES:
+                    return "gu"
+            # Odia
+            elif 0x0B00 <= code <= 0x0B7F:
+                if "or" in config.LANGUAGES:
+                    return "or"
+            # Tamil
+            elif 0x0B80 <= code <= 0x0BFF:
+                if "ta" in config.LANGUAGES:
+                    return "ta"
             # Telugu
             elif 0x0C00 <= code <= 0x0C7F:
                 if "te" in config.LANGUAGES:
@@ -538,10 +554,14 @@ class RAGPipelineOrchestrator:
             elif 0x0C80 <= code <= 0x0CFF:
                 if "kn" in config.LANGUAGES:
                     return "kn"
-            # Gujarati
-            elif 0x0A80 <= code <= 0x0AFF:
-                if "gu" in config.LANGUAGES:
-                    return "gu"
+            # Malayalam
+            elif 0x0D00 <= code <= 0x0D7F:
+                if "ml" in config.LANGUAGES:
+                    return "ml"
+            # Arabic / Urdu
+            elif 0x0600 <= code <= 0x06FF or 0x0750 <= code <= 0x077F or 0xFB50 <= code <= 0xFDFF or 0xFE70 <= code <= 0xFEFF:
+                if "ur" in config.LANGUAGES:
+                    return "ur"
                     
         # 3. Check if the text contains Latin letters (English)
         has_latin = bool(re.search(r"[a-zA-Z]", cleaned))

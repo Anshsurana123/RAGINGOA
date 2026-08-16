@@ -186,11 +186,23 @@
         <span class="font-bold text-black flex items-center gap-1">
           <span class="material-symbols-outlined text-sm">translate</span> LANGUAGE:
         </span>
-        <div class="flex items-center bg-white border-2 border-black shadow-brutal-sm p-0.5 rounded">
-          <button data-lang="auto" class="lang-btn px-2.5 py-1 rounded text-xs font-bold transition bg-black text-hhgold">Auto-Detect</button>
-          <button data-lang="en" class="lang-btn px-2.5 py-1 rounded text-xs font-bold transition text-slate-700 hover:text-black">English (en)</button>
-          <button data-lang="hi" class="lang-btn px-2.5 py-1 rounded text-xs font-bold transition text-slate-700 hover:text-black">Hindi (hi)</button>
-          <button data-lang="ta" class="lang-btn px-2.5 py-1 rounded text-xs font-bold transition text-slate-700 hover:text-black">Tamil (ta)</button>
+        <div class="flex items-center flex-wrap gap-1 bg-white border-2 border-black shadow-brutal-sm p-1 rounded max-w-full overflow-x-auto">
+          <button data-lang="auto" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition bg-black text-hhgold">Auto-Detect</button>
+          <button data-lang="en" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">EN</button>
+          <button data-lang="hi" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">HI</button>
+          <button data-lang="ta" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">TA</button>
+          <button data-lang="bn" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">BN</button>
+          <button data-lang="as" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">AS</button>
+          <button data-lang="gu" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">GU</button>
+          <button data-lang="kn" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">KN</button>
+          <button data-lang="ml" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">ML</button>
+          <button data-lang="mr" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">MR</button>
+          <button data-lang="ne" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">NE</button>
+          <button data-lang="or" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">OR</button>
+          <button data-lang="pa" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">PA</button>
+          <button data-lang="te" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">TE</button>
+          <button data-lang="ur" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">UR</button>
+          <button data-lang="sa" class="lang-btn px-2 py-0.5 rounded text-xs font-bold transition text-slate-700 hover:text-black">SA</button>
         </div>
         <span id="detectedLangPill" class="hidden px-2 py-0.5 rounded text-[10px] font-mono bg-black text-hhemerald border border-black shadow-brutal-sm">ROUTED: EN</span>
       </div>
@@ -200,7 +212,7 @@
         <label class="flex items-center gap-2 bg-white border-2 border-black px-3 py-1 shadow-brutal-sm cursor-pointer hover:bg-amber-50">
           <input type="checkbox" id="crossLingualToggle" checked class="rounded border-black text-hhdarkgreen focus:ring-0 cursor-pointer"/>
           <span class="font-bold text-black">Cross-Lingual Federation</span>
-          <span class="text-slate-500 text-[10px]">(HI + TA + EN)</span>
+          <span class="text-slate-500 text-[10px]">(14 INDIC + EN)</span>
         </label>
 
         <div class="hidden sm:flex items-center gap-2 bg-white border-2 border-black px-3 py-1 shadow-brutal-sm">

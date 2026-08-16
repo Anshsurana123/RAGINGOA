@@ -38,11 +38,38 @@ UNSAFE_PATTERNS = [
     # Cyberattacks / Illegal Exploits
     r"(?i)\b(how\s+to\s+)?(hack|ddos\s+attack|bypass\s+security|steal\s+passwords|malware\s+source\s+code|ransomware\s+attack|exploit\s+vulnerability)\b",
     
-    # Indic Safety Patterns (Hindi / Devanagari)
+    # Indic Safety Patterns (Hindi / Marathi / Nepali Devanagari)
     r"(?i)(बम\s*(बनाने|बनाना|तैयार)|विस्फोटक|हथियार\s*(बना|तैयार)|ज़हर\s*बना|आत्महत्या|फांसी\s*लगा|कत्ल\s*कर|जान\s*से\s*मार|आतंकवादी\s*हमला|देशद्रोह)",
     
     # Indic Safety Patterns (Tamil)
     r"(?i)(குண்டு\s*(தயாரி|செய்வது)|வெடிகுண்டு|ஆயுதம்\s*செய்|விஷம்\s*தயாரி|தற்கொலை|கொலை\s*செய்|பயங்கரவாத\s*தாக்குதல்)",
+    
+    # Indic Safety Patterns (Bengali / Assamese)
+    r"(?i)(বোমা\s*(তৈরি|বানানো)|বিস্ফোরক|অস্ত্র\s*তৈরি|বিষ\s*তৈরি|আত্মহত্যা|হত্যা\s*করা|সন্ত্রাসবাদী|বম\s*বনোৱা)",
+    
+    # Indic Safety Patterns (Gujarati)
+    r"(?i)(બોમ્બ\s*(બનાવવો|બનાવવાની)|વિસ્ફોટક|હથિયાર\s*બનાવવા|ઝેર\s*બનાવવું|આત્મહત્યા|હત્યા|આતંકવાદી)",
+    
+    # Indic Safety Patterns (Kannada)
+    r"(?i)(ಬಾಂಬ್\s*(ತಯಾರಿಸುವುದು|ಮಾಡುವುದು)|ಸ್ಫೋಟಕ|ಶಸ್ತ್ರಾಸ್ತ್ರ|ವಿಷ\s*ತಯಾರಿಸುವುದು|ಆತ್ಮಹತ್ಯೆ|ಕೊಲೆ|ಭಯೋತ್ಪಾದಕ)",
+    
+    # Indic Safety Patterns (Malayalam)
+    r"(?i)(ബോംബ്\s*(നിർമ്മാണം|ഉണ്ടാക്കാൻ)|സ്ഫോടകവസ്തുക്കൾ|ആയുധം|വിഷം\s*നിർമ്മിക്കാൻ|ആത്മഹത്യ|കൊലപാതകം)",
+    
+    # Indic Safety Patterns (Odia)
+    r"(?i)(ବୋମା\s*(ତିଆରି|ବନାଇବା)|ବିସ୍ଫୋରକ|ଅସ୍ତ୍ରଶସ୍ତ୍ର|ବିଷ\s*ତିଆରି|ଆତ୍ମହତ୍ୟା|ହତ୍ୟା|ଆତଙ୍କବାଦୀ)",
+    
+    # Indic Safety Patterns (Punjabi)
+    r"(?i)(ਬੰਬ\s*(ਬਣਾਉਣਾ|ਤਿਆਰ)|ਧਮਾਕਾਖੇਜ਼|ਹਥਿਆਰ\s*ਬਣਾਉਣਾ|ਜ਼ਹਿਰ|ਖੁਦਕੁਸ਼ੀ|ਕਤਲ|ਅੱਤਵਾਦੀ)",
+    
+    # Indic Safety Patterns (Telugu)
+    r"(?i)(బాంబు\s*(తయారీ|చేయడం)|పేలుడు|ఆయుధం|విషం\s*తయారీ|ఆత్మహత్య|హత్య|తీవ్రవాద)",
+    
+    # Indic Safety Patterns (Urdu)
+    r"(?i)(بم\s*(بنانا|بنانے)|دھماکہ|ہتھیار|زہر|خودکشی|قتل|دہشت\s*گرد)",
+    
+    # Indic Safety Patterns (Sanskrit)
+    r"(?i)(विस्फोटक|शस्त्रनिर्माण|विषनिर्माण|आत्महत्या|नरहत्या|आतङ्कवादी)",
 ]
 
 COMPILED_UNSAFE_REGEXES = [re.compile(p, re.UNICODE) for p in UNSAFE_PATTERNS]

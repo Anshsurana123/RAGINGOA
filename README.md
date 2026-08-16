@@ -1,315 +1,126 @@
 ---
-title: Hacker House Goa 2026 - Voice Indic RAG
-emoji: 🌴
+title: RAGINGOA - Voice-Enabled Indic RAG
+emoji: 🎙️
 colorFrom: green
 colorTo: yellow
 sdk: docker
 app_port: 7860
 pinned: false
-license: mit
-short_description: Instrumented, low-latency Voice RAG for Indic Languages
 ---
 
-# 🌴 Hacker House Goa 2026: Voice-Enabled Multilingual Indic RAG
+# MS MARCO Translations Dataset
 
-An instrumented, low-latency, voice-enabled Retrieval-Augmented Generation (RAG) system built from scratch for Indic languages (**Hindi**, **Tamil**, and **English**), strictly architected for zero-code extension to 13+ Indic languages via a single configuration list.
+## Dataset Description
 
-Featuring **Cross-Lingual Multilingual Federation**, **Structured Orchestration Harness with Automated Retries & Error Recovery**, **Multi-Tier Neural Safety Guardrails**, and a retro-tropical **Hacker House Goa 2026 Command Center UI**.
+This dataset contains the MS MARCO dataset translated into various Indic languages. The original MS MARCO dataset is a collection of queries, passages, and answers for machine reading comprehension and question answering tasks. Each example includes both the original English content and the translated content, along with translation metadata.
 
----
+## Supported Languages
 
-## 🏛️ System Architecture
+| Language Code | Language Name | Train File | Validation File |
+|---------------|---------------|------------|-----------------|
+| as | Assamese | asmtrain.jsonl | asmval.jsonl |
+| bn | Bengali | bentrain.jsonl | benval.jsonl |
+| gu | Gujarati | gutrain.jsonl | guval.jsonl |
+| hi | Hindi | hintrain.jsonl | hinval.jsonl |
+| kn | Kannada | kantrain.jsonl | kanval.jsonl |
+| ml | Malayalam | maltrain.jsonl | malval.jsonl |
+| mr | Marathi | martrain.jsonl | marval.jsonl |
+| ne | Nepali | neptrain.jsonl | nepval.jsonl |
+| or | Odia | ortrain.jsonl | orval.jsonl |
+| pa | Punjabi | pantrain.jsonl | panval.jsonl |
+| sa | Sanskrit | santrain.jsonl | sanval.jsonl |
+| ta | Tamil | tamtrain.jsonl | tamval.jsonl |
+| te | Telugu | teltrain.jsonl | telval.jsonl |
+| ur | Urdu | urdtrain.jsonl | urdval.jsonl |
 
-```mermaid
-graph TD
-    A[Spoken Voice Audio / Text Bypass] --> B[Sarvam Saaras v3 STT + ffmpeg 16kHz Normalizer]
-    B --> C[Language Resolution config.LANGUAGES]
-    C --> D[Guardrail 1: Tier-1 Regex + Tier-2 Pretrained Neural Safety]
-    D -- Safe --> E[Query Embedding 'query: ' Prefix multilingual-e5-small]
-    D -- Blocked --> X[Declined Response: Safety Violation]
-    E --> F[Guardrail 2: Centroid Distance Off-Topic Filter]
-    F -- Off-Topic --> X
-    F -- On-Topic --> G[Cross-Lingual Federated Multi-Strategy FAISS Retrieval]
-    G --> H1[Passage Native Strategy Index]
-    G --> H2[Semantic & Sentence-Window Index]
-    H1 --> I[Candidate Merge & Reciprocal Rank Fusion RRF]
-    H2 --> I
-    I --> J[Adaptive Script-Aware BM25 Score Fusion]
-    J --> K[Cross-Encoder Deep Re-Ranker ms-marco-MiniLM-L-6-v2]
-    K -- CE Score < -0.5 --> Y[Declined Response: No Relevant Info in Corpus]
-    K -- High Relevance --> L[Non-LLM Context Synthesis: TextRank Eigenvector + SVD Decomposition]
-    L --> M[Post-Generation Grounding & Hallucination Guardrail]
-    M -- Grounded --> N[Grounded JSON Response + Full StageTimings]
-    M -- Insufficient Info --> Y
+## Usage
+
+```python
+from datasets import load_dataset
+
+# Load Hindi training data
+dataset = load_dataset("ai4bharat/MSMARCO-XI", "hi", split="train")
+
+
+# Access the data
+for example in dataset:
+    print(f"Query: {example['query']}")
+    print(f"Answers: {example['answers']}")
+    print(f"Passages: {len(example['passages'])}")
+    break
 ```
 
----
+## Dataset Structure
 
-## 🌟 Key Features & Capabilities
+Each example in the dataset contains:
 
-### 1. 🌐 Cross-Lingual Multilingual Federation (Hindi + Tamil + English)
-- **Shared Vector Space**: Uses `intfloat/multilingual-e5-small` to project English, Hindi (Devanagari), and Tamil into a shared 384-dimensional dense semantic space.
-- **Federated Multi-Source Fusion**: A question asked in English can retrieve grounded evidence from Hindi and Tamil passages simultaneously.
-- **Unified Cross-Lingual Synthesis**: The generation harness fuses facts across all retrieved language blocks (`[EN Source #1]`, `[HI Source #2]`, `[TA Source #3]`) and synthesizes a comprehensive, fluent response translated back into the user's query language.
+### Translation Metadata
+- `source_lang` (string): Source language code (e.g., "eng_Latn")
+- `target_lang` (string): Target language code (e.g., "asm_Beng")  
+- `meta` (dict): Translation model metadata including:
+  - `model_name` (string): Name of the translation model used
+  - `temperature` (float): Sampling temperature
+  - `max_tokens` (int): Maximum tokens generated
+  - `top_p` (float): Top-p sampling parameter
+  - `frequency_penalty` (float): Frequency penalty
+  - `presence_penalty` (float): Presence penalty
 
-### 2. ⚡ Sub-200ms Cross-Encoder Re-Ranking & Adaptive Script-Aware BM25
-- **Two-Stage Precision Pipeline**:
-  - **Stage 1 (Bi-Encoder + Adaptive BM25)**: Fast dense FAISS search retrieves candidate passages in $\sim3\text{ ms}$.
-  - **Stage 2 (Cross-Encoder)**: Evaluates top-3 candidate pairs with `cross-encoder/ms-marco-MiniLM-L-6-v2` in $<25\text{ ms}$ on CPU using optimized prefix slicing and PyTorch inference mode.
-- **Adaptive Script-Aware BM25**:
-  - **Monolingual Search (e.g. Hindi $\to$ Hindi, English $\to$ English)**: Uses full BM25 lexical precision + dense vector score to capture exact entities and nouns.
-  - **Cross-Script Search (e.g. English $\to$ Hindi, Hindi $\to$ English)**: Automatically detects script divergence and bypasses BM25 to prevent 0-score lexical penalties, relying 100% on the aligned multilingual vector space.
-- **Elimination of False-Positive Nearest Neighbors**: Solves the classic bi-encoder blind spot where out-of-corpus queries (e.g. *"what is a computer"*) matched weakly related passages (e.g. hacker definitions). Deep cross-attention scores relevance accurately.
-- **Calibrated Disqualification Filter**: When candidate passages fail to answer the query (cross-encoder score $< -0.5$), the system **cleanly declines** with *"No relevant information found in the indexed corpus"* rather than hallucinating or returning distractor text.
+### Main Content
+- `query` (string): The translated search query
+- `Answer` (string): The translated answer
+- `query_id` (int): Unique identifier for the query
+- `query_type` (string): Type/category of the query
 
-### 3. 🧠 Continuous TextRank & SVD Matrix Decomposition Non-LLM Synthesis
-- **Deterministic Context Synthesis without LLMs**: Eliminates autoregressive generation bottlenecks (500ms+ decoding) while avoiding naive 1st-sentence picking.
-- **Continuous TextRank Graph Centrality**:
-  - Builds an inter-sentence cosine similarity adjacency matrix $W_{ij} = \max(0, \vec{s}_i \cdot \vec{s}_j)$ from candidate sentence nodes.
-  - Implements personalized power iteration with query relevance priors:
-    $$\mathbf{p}^{(t+1)} = (1 - d) \cdot \frac{\mathbf{r}}{\sum r_k} + d \cdot T^T \mathbf{p}^{(t)}$$
-    Converges in 12 iterations on CPU ($< 5\text{ ms}$) to identify the most informative factual sentences.
-- **SVD Cumulative Energy Filtering**:
-  - Performs economy matrix decomposition $M = U \Sigma V^T$ across sentence embeddings.
-  - Dynamically retains principal components reaching $\ge 95\%$ cumulative singular energy ($\tau = 0.95$) to calculate sentence projection energy $\text{score}(i) = \sum_{j=1}^k \sigma_j^2 \cdot U_{i,j}^2$.
-- **Coherent Grammatical Sequencing**: Sequences winning sentences according to original document positions, preserving natural syntax and narrative flow with zero hallucination.
+### Passages
+- `passages` (dict): Contains passage information:
+  - `is_selected` (list): List indicating which passages are selected (1) or not (0)
+  - `English_passages` (list): List of original English passages
+  - `Translated_passages` (list): List of translated passages
 
-### 4. 🏛️ Structured Orchestration Harness & Resilience
-- **8-Stage State Machine**: Strongly typed end-to-end execution pipeline managed by `pipeline/orchestrator.py`.
-- **Automated Retries with Exponential Backoff**:
-  - LLM Synthesis (`generation/llm_fallback.py`): 3 retries with backoff ($0.5\text{s} \times 2^{\text{attempt}-1}$) for HTTP 429/500/timeouts.
-  - Neural Safety Guardrail (`guardrails/pre_retrieval.py`): 2 retries with JSON Schema enforcement.
-- **`robust_json_parser` Engine**: Handles LLM formatting anomalies (markdown fences ```` ```json ... ``` ````, conversational text wrappers, outer bracket slicing) with structured exception triggers for retries.
-- **Zero-Crash Multi-Tier Fallbacks**:
-  - If external LLMs are unavailable $\rightarrow$ Falls back to deterministic local extractive sentence selection (`_local_fallback_synthesize`).
-  - If STT receives browser WebM/Opus $\rightarrow$ Auto-normalizes to 16kHz mono WAV via `ffmpeg`.
+### Original English Content
+- `Eng_Query` (string): Original English query
+- `Eng_Answer` (string): Original English answer
 
-### 5. 🛡️ Multi-Tier Guardrails & Anti-Hallucination
-- **Pre-Retrieval Safety Guardrail**:
-  - Fast-Path Regex Filter: Sub-millisecond detection of profanity, hate speech, self-harm, weapons, and hazardous instructions.
-  - Prompt Injection & System Exfiltration Defense: Detects and blocks jailbreaks, DAN modes, roleplay overrides, and attempts to leak system instructions or internal file metadata.
-  - Neural Safety Model: Groq LPU-accelerated safety classifier evaluating complex multi-lingual semantic intent.
-- **Centroid Topic Gatekeeper**: Computes cosine distance from query embedding to language corpus centroids (`threshold = 0.85`), skipping retrieval for out-of-domain queries.
-- **Post-Retrieval Relevance Gate**: Cross-encoder scoring prunes non-answering distractor chunks.
-- **Post-Generation Grounding Gate**: Verifies n-gram and semantic containment against source chunks.
+## Example
 
-### 6. 🌴 Hacker House Goa 2026 Command Center UI
-- **The Terminal**: Vinyl radar record disc with real-time Web Audio frequency waveform canvas, gold mic button, neon STT status badges, and `AUDIO FIELD NOTE ///` brutalist cards.
-- **The Knowledge Sea**: Dark emerald radar grid (`#0D261E`) hosting stacked document index cards with match percentage badges, chunk strategy tags, and BM25 scores.
-- **SYS Telemetry & Performance Deck**: Sub-millisecond 4-stage waterfall breakdown (`STT`, `RETRIEVAL`, `GUARDRAIL`, `GENERATION`), benchmark quantiles (`P50: 45.7ms`, `P70: 48.4ms`, `P100: 118.5ms`), and a 4-tier Guardrail Audit Matrix.
-
-### 7. 🧩 Advanced Multi-Strategy Chunking & Indexing
-Rather than naive fixed-size token splitting, the pipeline implements **3 specialized chunking strategies** across separate FAISS HNSW indexes merged via Reciprocal Rank Fusion:
-- **Passage-Native Chunking (`chunking/passage_native.py`)**: Zero-loss atomic preservation of QA passages maintaining exact query-passage alignment and document provenance.
-- **Sentence-Window Chunking with $\ge 15\%$ Overlap (`chunking/sentence_window.py`)**: Separates search focus from generation context by embedding a central sentence (`embed_text`) while attaching $\pm 1$ surrounding sentences with 15% sliding window token overlap to guarantee narrative continuity.
-- **Semantic Cosine-Spike Splitter (`chunking/semantic.py`)**: Computes sentence embedding distance gradients $d(S_i, S_{i+1}) = 1.0 - \cos(S_i, S_{i+1})$ using `multilingual-e5-small` and splits at statistical distance spikes ($\mu + 0.5\sigma$) to preserve coherent thematic ideas.
-- **Multilingual Sentence Tokenizer (`chunking/metadata.py`)**: Custom sentence boundary regex supporting Latin punctuation (`.!?`), Devanagari Danda (`।`, `॥`), and Tamil markers.
-- **Metadata-Aware Schema (`chunking/metadata.py`)**: Strongly typed dataclasses carrying `chunk_id`, `strategy`, `source_lang`, `token_count`, `doc_id`, `title`, and `context_window`.
-- **Parallel Multi-Index Reciprocal Rank Fusion (RRF, $k=60$) (`chunking/hybrid_merge.py`)**: Parallel search across `passage_native` (2,100 vectors) and `semantic_longdoc` (370 vectors) indexes, deduplicating and ranking by multi-strategy consensus score:
-  $$\text{RRF}(d) = \sum_{s \in \text{strategies}} \frac{w_s}{60 + r_s(d)}$$
-
----
-
-## 🔒 Technical Decisions & Engineering Rationales
-
-| Component | Technical Choice | Engineering Rationale |
-| :--- | :--- | :--- |
-| **Language Extensibility** | Single `config.LANGUAGES` list | Zero-code modification required to extend to all 13 Indic languages (`as`, `bn`, `gu`, `hi`, `kn`, `ml`, `mr`, `ne`, `or`, `pa`, `sa`, `ta`, `te`, `ur`, `en`). |
-| **Speech-to-Text (STT)** | Sarvam Saaras v3 (`saaras:v3`) | Native Indic language transcription with `ffmpeg` 16kHz mono normalization and `language_code="unknown"` auto-detection. |
-| **Embedding Model** | `intfloat/multilingual-e5-small` | SOTA multilingual retrieval embedding. Mandatory `"query: "` and `"passage: "` prefixes are enforced to prevent retrieval degradation. |
-| **Vector Index** | In-Memory FAISS HNSW (`IndexHNSWFlat`) | `M=32`, `efConstruction=200`, `efSearch=64`. Sub-millisecond CPU search with zero network latency. |
-| **Chunking Strategies** | 4 distinct strategies with 15% overlap | (1) `passage_native`: atomic passages; (2) `sentence_window`: $\pm1$ sentence context; (3) `semantic`: cosine distance spike topic splitting; (4) `metadata`: language pre-filtering & tagging. |
-| **Hybrid Re-ranking** | Adaptive BM25 + Cross-Encoder (`ms-marco-MiniLM-L-6-v2`) | Combines adaptive script-aware BM25 with deep cross-attention re-ranking on top-3 candidates in $<25\text{ms}$ on CPU. |
-| **Disqualification Gate** | Calibrated Cross-Encoder Filter ($\text{CE} < -0.5$) | Immediately declines queries whose top match fails deep relevance checks, preventing false positive answers. |
-| **Context Synthesis** | TextRank Eigenvector Centrality + SVD Decomposition | Deterministic mathematical synthesis extracting top salient sentences from candidate passages in $<10\text{ms}$ on CPU with zero hallucinations. |
-| **Pre-Retrieval Guardrails** | Fast Regex + Centroid Distance + Neural Safety | Cheapest checks first: fast keyword/regex pass blocks prompt injections and unsafe terms; cosine distance to corpus centroids blocks off-topic queries before retrieval. |
-| **Post-Gen Guardrail** | Lexical & Semantic Grounding Overlap | Strict token containment scoring. Rejects ungrounded hallucinations with standard template. |
-| **Generation Strategy** | Non-LLM TextRank/SVD Fast-Path + LLM Fallback | Sub-millisecond deterministic passage extraction on CPU, with optional multi-source synthesis via Groq. |
-| **Orchestration** | Async State Machine + FastAPI | Hand-rolled Python async orchestrator using Pydantic v2 schemas without framework bloat. |
-
-
-
----
-
-## ⚡ Latency Analytics & SLA Benchmarks (P50 / P70 / P100)
-
-Evaluated across **61 diverse test queries** spanning Hindi, Tamil, and English (including in-scope factoid queries, cold-start runs, out-of-domain centroid rejection, and adversarial injection attempts).
-
-**Hardware Test Environment**: `8 vCPUs | 15.78 GB RAM | Windows 11 (AMD64) | In-Memory FAISS HNSW`
-
-| Metric Scope | Target SLA | P50 (Median) | P70 | P100 (Max) | SLA Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Retrieval Stage (FAISS + BM25 + Cross-Encoder)** | **< 200 ms** | **48.20 ms** | **65.10 ms** | **124.50 ms** | ✅ **PASS (< 200 ms)** |
-| **Full Post-STT Pipeline (Offline Extractive)** | **< 200 ms** | **75.93 ms** | **120.45 ms** | **169.57 ms** | ✅ **PASS (< 200 ms)** |
-| **Full End-to-End Pipeline (with Hosted LLM)** | — | **2456.27 ms** | **2663.28 ms** | **3382.86 ms** | ✅ **PASS** |
-
-### Stage-by-Stage Sub-Millisecond Breakdown:
-- **Language Routing & Dynamic Dispatch**: `0.01 ms` (P50)
-- **Pre-Retrieval Guardrail 1 (Safety Regex)**: `0.03 ms` (P50)
-- **Query Embedding (`multilingual-e5-small`)**: `30.55 ms` (P50)
-- **Centroid Topic Filter Distance**: `0.08 ms` (P50)
-- **Parallel Multi-Strategy FAISS Search**: `0.51 ms` (P50)
-- **BM25 Lexical Score Fusion**: `1.50 ms` (P50)
-- **Cross-Encoder Deep Re-ranking (`ms-marco-MiniLM-L-6-v2`)**: `18.20 ms` (P50 on top-3)
-- **Extractive QA Answer Generation**: `0.10 ms` (P50)
-- **Post-Generation Grounding Verification**: `0.52 ms` (P50)
-
-*Raw reproducible benchmark artifacts saved at [benchmark/results/latency_results.json](file:///c:/Users/ANSH/.gemini/antigravity/scratch/HHGOAragmodel/benchmark/results/latency_results.json) and [benchmark/results/latency_report.md](file:///c:/Users/ANSH/.gemini/antigravity/scratch/HHGOAragmodel/benchmark/results/latency_report.md).*
-
-
----
-
-## 🚀 Quickstart & Local Setup
-
-### 1. Installation
-```bash
-git clone https://github.com/Anshsurana123/RAGINGOA.git
-cd RAGINGOA
-pip install -r requirements.txt
-cp .env.example .env
+```python
+{
+    "source_lang": "eng_Latn",
+    "target_lang": "asm_Beng", 
+    "meta": {
+        "model_name": "ckpt-3epochs-sft-then-400k-kd",
+        "temperature": 0.0,
+        "max_tokens": 4096,
+        "top_p": 1.0,
+        "frequency_penalty": 0.0,
+        "presence_penalty": 0.0
+    },
+    "query": "মেনহাটন প্ৰকল্পৰ সফলতাৰ তাৎক্ষণিক প্ৰভাৱ কি আছিল?",
+    "Answer": "মেনহাটন প্ৰকল্পৰ সফলতাৰ তাৎক্ষণিক প্ৰভাৱ আছিল...",
+    "query_id": 1185869,
+    "query_type": "DESCRIPTION",
+    "passages": {
+        "is_selected": [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "English_passages": ["The presence of communication amid scientific minds...", ...],
+        "Translated_passages": ["বৈজ্ঞানিক মনৰ মাজত যোগাযোগৰ উপস্থিতি...", ...]
+    },
+    "Eng_Query": ")what was the immediate impact of the success of the manhattan project?",
+    "Eng_Answer": "The immediate impact of the success of the manhattan project was..."
+}
 ```
+## 📖 Citation
 
-### 2. Configure Environment (`.env`)
-```env
-SARVAM_API_KEY=your_sarvam_api_key_here
-LLM_API_KEY=your_groq_api_key_here
-LLM_BASE_URL=https://api.groq.com/openai/v1
-LLM_MODEL=llama-3.3-70b-versatile
+If you use IndicMSMARCO in your research, please cite:
+
+```bibtex
+@dataset{indic_msmarco_2024,
+  title={IndicRAGSuite: LargeScale Datasets and a Benchmark for Indian Language RAG Systems},
+  author={Pasunuti Prasanjith,Prathmesh B More,Anoop Kunchukuttan, Raj Dabre},
+  year={2025},
+  {journal = {arXiv preprint arXiv:2506.01615},
+  url={https://huggingface.co/datasets/ai4bharat/IndicMSMARCO}
+}
 ```
+## License
 
-### 3. Build Corpus & FAISS Indexes
-```bash
-# 1. Build multilingual MS MARCO corpus
-python data/build_corpus.py
-
-# 2. Augment long documents for sentence-window and semantic chunking
-python data/augment_longdocs.py
-
-# 3. Build FAISS HNSW indexes and compute corpus centroids
-python retrieval/index_faiss.py
-```
-
-### 4. Run Server & Web UI
-```bash
-uvicorn api.main:app --host 0.0.0.0 --port 7860 --reload
-```
-Open **[http://localhost:7860](http://localhost:7860)** in your browser.
-
----
-
-## 🧪 Test Suite & Verification
-
-The repository includes a comprehensive test suite covering all modules, chunking strategies, guardrails, cross-lingual federation, and resilience edge cases.
-
-```bash
-pytest tests/test_pipeline.py -v
-```
-
-### Test Coverage (24/24 Tests Passing):
-- `TestLanguageExtensibility`: Config single source of truth, registry integrity, dynamic routing.
-- `TestChunkingModule`: Passage-native, sentence-window with 15% overlap, semantic topic splitting, multilingual sentence tokenization.
-- `TestRetrievalAndReranking`: Multilingual BM25 tokenization, hybrid score fusion, Reciprocal Rank Fusion (RRF).
-- `TestGuardrails`: Fast-path keyword blocking, safe query pass-through, centroid off-topic detection, grounding overlap scoring.
-- `TestGeneration`: Extractive sentence selection, provider-agnostic LLM adapter.
-- `TestEndToEndPipeline`: Text bypass queries, unsafe query orchestration, prompt extraction blocking, cross-lingual federation, and robust JSON parser error recovery.
-
----
-
-## 🌐 Dynamic 13-Language Extensibility
-
-To scale from 3 languages (`hi`, `ta`, `en`) to all 13 Indic languages:
-
-1. Open `config.py` and add the desired language codes to `LANGUAGES`:
-   ```python
-   LANGUAGES = ["hi", "ta", "en", "bn", "mr", "te", "gu", "kn", "ml", "pa", "or", "as", "ur"]
-   ```
-2. Re-run data preparation:
-   ```bash
-   python data/build_corpus.py
-   python data/augment_longdocs.py
-   python retrieval/index_faiss.py
-   ```
-3. **Zero changes** are needed in `pipeline/`, `retrieval/`, `chunking/`, `guardrails/`, or `api/`.
-
----
-
-## 📁 Repository Structure
-
-```
-├── api/
-│   └── main.py                  # FastAPI server with /query, /health, /metrics endpoints
-├── chunking/
-│   ├── hybrid_merge.py          # Reciprocal Rank Fusion (RRF) candidate merger
-│   ├── passage_native.py        # Atomic passage chunking
-│   ├── semantic_chunker.py      # Embedding cosine distance spike topic chunking
-│   └── sentence_window.py       # Sentence-window chunking with 15% overlap
-├── data/
-│   ├── augment_longdocs.py      # Long-form domain article generator (Goa, Heart, Solar, Quantum)
-│   └── build_corpus.py          # Multilingual MS MARCO corpus extractor & deduplicator
-├── demo/
-│   └── index.html               # Hacker House Goa 2026 Command Center Web UI
-├── generation/
-│   ├── extractive.py            # Local deterministic extractive sentence selector
-│   └── llm_fallback.py          # Provider-agnostic LLM adapter with retries & backoff
-├── guardrails/
-│   ├── post_generation.py       # Grounding overlap verifier & hallucination detector
-│   └── pre_retrieval.py         # Fast-path regex + Neural safety classifier + robust_json_parser
-├── pipeline/
-│   ├── orchestrator.py          # 8-Stage async pipeline state machine
-│   └── schemas.py               # Pydantic v2 schemas (QueryRequest, QueryResponse, etc.)
-├── retrieval/
-│   ├── embed.py                 # intfloat/multilingual-e5-small embedding manager
-│   ├── index_faiss.py           # In-memory FAISS HNSW vector index & centroid manager
-│   └── rerank.py                # BM25 + Cross-Encoder (MiniLM-L-6-v2) hybrid re-ranking
-├── stt/
-│   └── sarvam_client.py         # Sarvam Saaras v3 STT with ffmpeg 16kHz mono normalizer
-├── tests/
-│   └── test_pipeline.py         # 24-test comprehensive pytest suite
-├── config.py                    # Single source of truth configuration
-├── requirements.txt             # Python dependencies
-└── README.md                    # Project documentation
-```
-
----
-
-## 🚀 Hugging Face Space Deployment
-
-The system is deployed on Hugging Face Spaces using the **Docker SDK**:
-- **Live Space URL**: [https://ansh123456789-ragingoa.hf.space](https://ansh123456789-ragingoa.hf.space)
-- **Space Repository**: [https://huggingface.co/spaces/ansh123456789/ragingoa](https://huggingface.co/spaces/ansh123456789/ragingoa)
-
-### 1. Space Hardware & Cold-Start Properties
-- **Hardware Profile**: Free `cpu-basic` (2 vCPU / 16 GB RAM).
-- **Cold-Start Platform Property**:
-  > [!NOTE]
-  > Free `cpu-basic` Spaces sleep after 48 hours of inactivity. The initial wake request will experience a **30–90 second platform container spin-up time**. This is an inherent infrastructure property of Hugging Face free tier, not a pipeline latency regression. Once warm, the in-memory retrieval pipeline responds in **~35 ms**.
-
-### 2. Environment Secrets Configuration
-In your Space dashboard under **Settings → Variables and Secrets**, configure:
-- `SARVAM_API_KEY`: Your Sarvam AI Saaras v3 API subscription key.
-- `LLM_API_KEY`: Your OpenAI/Groq API key for multi-source cross-lingual synthesis.
-- `LLM_BASE_URL`: API Base URL (e.g. `https://api.groq.com/openai/v1` or `https://api.openai.com/v1`).
-- `LLM_MODEL`: Model identifier (e.g. `llama-3.3-70b-versatile` or `gpt-4o-mini`).
-
-### 3. Reproducible Push-to-Space Steps
-```bash
-# 1. Add Hugging Face Space remote
-git remote add space https://huggingface.co/spaces/ansh123456789/ragingoa
-
-# 2. Push artifacts (Dockerfile, code, pre-built FAISS indexes) to Space
-git push space main
-```
-
----
-
-## 🎯 Explicit Non-Goals & Architectural Boundaries
-1. **Sub-200ms Full Pipeline Claim**: We do NOT claim the full pipeline (STT + Retrieval + Hosted LLM) runs under 200ms. Hosted third-party STT and LLM generation have unavoidable external network latency floors. We hold the **in-memory retrieval stage (Embedding + FAISS HNSW + BM25 Rerank)** to the **~200ms target** (measured at **~35ms**), and report STT/LLM latencies separately and honestly.
-2. **No Shallow Demo Datasets**: We do NOT index only the passages tied to our demo queries. We index a broad, deduplicated multi-thousand passage corpus (148,000+ passages) with real distractor passages so retrieval is a genuine search.
-3. **No Heavy Framework Abstractions**: No LangChain or LlamaIndex. All orchestration is hand-rolled with typed Pydantic v2 schemas.
-4. **No Heavy NLI Grounding on Critical Path**: Overlap scoring is used for sub-millisecond hallucination checking. Full cross-encoder NLI entailment is documented as a future offline extension.
-5. **No Raw Datasets in Space Repo**: Raw multi-GB parquet files are excluded via `.gitignore` / `.dockerignore`. Only compiled, lightweight FAISS index artifacts are bundled into the deployment.
-
----
-
-## 📜 License
-MIT License. Built for **Hacker House Goa 2026**.
+Please refer to the original MS MARCO dataset license terms.

@@ -84,16 +84,24 @@ def detect_script(text: str) -> str:
         code = ord(char)
         if 0x0900 <= code <= 0x097F:
             return "Deva"
-        if 0x0B80 <= code <= 0x0BFF:
-            return "Taml"
         if 0x0980 <= code <= 0x09FF:
             return "Beng"
+        if 0x0A00 <= code <= 0x0A7F:
+            return "Guru"
+        if 0x0A80 <= code <= 0x0AFF:
+            return "Gujr"
+        if 0x0B00 <= code <= 0x0B7F:
+            return "Orya"
+        if 0x0B80 <= code <= 0x0BFF:
+            return "Taml"
         if 0x0C00 <= code <= 0x0C7F:
             return "Telu"
         if 0x0C80 <= code <= 0x0CFF:
             return "Knda"
-        if 0x0A80 <= code <= 0x0AFF:
-            return "Gujr"
+        if 0x0D00 <= code <= 0x0D7F:
+            return "Mlym"
+        if 0x0600 <= code <= 0x06FF or 0x0750 <= code <= 0x077F or 0xFB50 <= code <= 0xFDFF or 0xFE70 <= code <= 0xFEFF:
+            return "Arab"
     if bool(re.search(r"[a-zA-Z]", text)):
         return "Latn"
     return "Latn"

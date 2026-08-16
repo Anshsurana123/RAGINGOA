@@ -34,13 +34,12 @@ from pipeline.orchestrator import get_orchestrator
 
 
 class TestLanguageExtensibility:
-    """Tests zero-hardcoding dynamic language extensibility."""
+    """Tests zero-hardcoding dynamic language extensibility across all 14 Indic languages + English."""
     def test_languages_config_list(self):
         assert isinstance(config.LANGUAGES, list)
-        assert len(config.LANGUAGES) >= 3
-        assert "hi" in config.LANGUAGES
-        assert "ta" in config.LANGUAGES
-        assert "en" in config.LANGUAGES
+        assert len(config.LANGUAGES) >= 14
+        for lang in ["as", "bn", "gu", "hi", "kn", "ml", "mr", "ne", "or", "pa", "sa", "ta", "te", "ur", "en"]:
+            assert lang in config.LANGUAGES
 
     def test_language_metadata_registry(self):
         for lang in config.LANGUAGES:
@@ -49,13 +48,31 @@ class TestLanguageExtensibility:
             assert "script" in info
             assert "sarvam_code" in info
 
-    def test_dynamic_language_routing(self):
+    def test_dynamic_language_routing_all_scripts(self):
         orchestrator = get_orchestrator()
-        # Hindi Devanagari text
+        # Hindi Devanagari
         assert orchestrator._resolve_target_language("यह एक परीक्षण वाक्य है।", None) == "hi"
-        # Tamil text
+        # Tamil
         assert orchestrator._resolve_target_language("இது ஒரு சோதனை வாக்கியம்.", None) == "ta"
-        # English text
+        # Bengali
+        assert orchestrator._resolve_target_language("এটি একটি পরীক্ষা বাক্য।", None) == "bn"
+        # Assamese (specific letter 'ৰ')
+        assert orchestrator._resolve_target_language("এইটো এটা পৰীক্ষামূলক বাক্য।", None) == "as"
+        # Gujarati
+        assert orchestrator._resolve_target_language("આ એક પરીક્ષણ વાક્ય છે.", None) == "gu"
+        # Kannada
+        assert orchestrator._resolve_target_language("ಇದು ಒಂದು ಪರೀಕ್ಷಾ ವಾಕ್ಯವಾಗಿದೆ.", None) == "kn"
+        # Malayalam
+        assert orchestrator._resolve_target_language("ഇതൊരു പരീക്ഷണ വാക്യമാണ്.", None) == "ml"
+        # Odia
+        assert orchestrator._resolve_target_language("ଏହା ଏକ ପରୀକ୍ଷଣ ବାକ୍ୟ |", None) == "or"
+        # Punjabi (Gurmukhi)
+        assert orchestrator._resolve_target_language("ਇਹ ਇੱਕ ਟੈਸਟ ਵਾਕ ਹੈ।", None) == "pa"
+        # Telugu
+        assert orchestrator._resolve_target_language("ఇది ఒక పరీక్ష వాక్యం.", None) == "te"
+        # Urdu (Arabic script)
+        assert orchestrator._resolve_target_language("یہ ایک امتحانی جملہ ہے۔", None) == "ur"
+        # English (Latin)
         assert orchestrator._resolve_target_language("This is an English sentence.", None) == "en"
 
 
@@ -303,4 +320,40 @@ class TestEndToEndPipeline:
         import pytest
         with pytest.raises(Exception):
             robust_json_parser('{"is_safe": true, reason: bad_unquoted_string}')
+
+
+class TestAllIndicLanguagesEndToEnd:
+    """Tests end-to-end execution across every single one of the 14 Indic languages + English."""
+    
+    @pytest.mark.parametrize("lang_code,query_text", [
+        ("hi", "हृदय के चार कक्ष कौन से हैं?"),
+        ("ta", "மனித இதயத்தின் நான்கு அறைகள் யாவை?"),
+        ("en", "What are the four chambers of the human heart?"),
+        ("bn", "মানব হৃদপিণ্ডের চারটি প্রকোষ্ঠ কী কী?"),
+        ("as", "মানৱ হৃদযন্ত্ৰৰ চাৰিটা কোঠালী কি কি?"),
+        ("gu", "માનવ હૃદયના ચાર ખંડો કયા છે?"),
+        ("kn", "ಮಾನವ ಹೃದಯದ ನಾಲ್ಕು ಕೋಣೆಗಳು ಯಾವುವು?"),
+        ("ml", "മനുഷ്യ ഹൃദയത്തിന്റെ നാല് അറകൾ ഏതെല്ലാമാണ്?"),
+        ("mr", "मानवी हृदयाचे चार कप्पे कोणते आहेत?"),
+        ("ne", "मानव मुटुका चार कोठाहरू के के हुन्?"),
+        ("or", "ମାନବ ହୃଦୟର ଚାରୋଟି କୋଠରୀ କ’ଣ?"),
+        ("pa", "ਮਨੁੱਖੀ ਦਿਲ ਦੇ ਚਾਰ ਖਾਨੇ ਕਿਹੜੇ ਹਨ?"),
+        ("te", "మానవ గుండెలోని నాలుగు గదులు ఏవి?"),
+        ("ur", "انسانی دل کے چار خانے کون سے ہیں؟"),
+        ("sa", "मानवहृदयस्य चत्वारः कोष्ठाः के सन्ति?"),
+    ])
+    def test_query_in_every_indic_language(self, lang_code: str, query_text: str):
+        orchestrator = get_orchestrator()
+        req = QueryRequest(
+            text=query_text,
+            language_hint=lang_code,
+        )
+        resp: QueryResponse = asyncio.run(orchestrator.execute(req))
+        assert isinstance(resp, QueryResponse)
+        assert resp.language_detected == lang_code
+        assert resp.total_ms > 0
+        assert len(resp.answer) > 0
+        assert resp.answer_source in ["extractive", "gold_answer_cache", "generated", "local_slm_generated", "cross_lingual_synthesis"]
+        assert resp.guardrail_flags.get("unsafe_detected") is False
+
 

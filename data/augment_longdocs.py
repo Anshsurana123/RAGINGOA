@@ -8,7 +8,7 @@ require multi-paragraph long-form text (e.g. 500-1500 words per document) to mea
 demonstrate context stitching, boundary detection, and token overlap.
 
 Strict Extensibility Requirement:
-This script iterates over `config.LANGUAGES`.
+This script iterates dynamically over `config.LANGUAGES`.
 """
 
 import json
@@ -25,8 +25,7 @@ import config
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-# Curated multi-topic long-form knowledge bases across registered languages
-# Topics include science, technology, geography, history, health, economics, environmental systems
+# Curated multi-topic long-form knowledge bases across all supported Indic languages
 LONG_DOCUMENT_SEEDS = {
     "en": [
         {
@@ -52,14 +51,6 @@ LONG_DOCUMENT_SEEDS = {
                 "The human cardiovascular system is a closed network of blood vessels driven by the muscular contractions of the four-chambered heart. Deoxygenated blood returns from peripheral tissues via the superior and inferior vena cava into the right atrium, passes into the right ventricle, and is pumped into the pulmonary artery toward the lungs for gas exchange.",
                 "Within pulmonary capillary beds, red blood cells release carbon dioxide and bind oxygen molecules to iron-rich hemoglobin complexes. Oxygenated blood then flows through pulmonary veins into the left atrium, moves across the mitral valve into the left ventricle, and is forcefully ejected into the systemic aorta under high systolic pressure.",
                 "Arterial blood pressure is tightly regulated by autonomic neural pathways, baroreceptors in the carotid sinuses, and the renin-angiotensin-aldosterone hormonal axis. Chronic hypertension can lead to endothelial dysfunction, arterial stiffness, atherosclerosis, and increased risk of myocardial infarction or cerebrovascular stroke."
-            ]
-        },
-        {
-            "title": "Quantum Mechanics and the Principles of Quantum Computation",
-            "paragraphs": [
-                "Quantum computing departs fundamentally from classical Von Neumann architecture by replacing binary bits with quantum bits or qubits. A qubit can exist in a superposition of states zero and one simultaneously, governed by linear combinations of complex probability amplitudes until measurement collapses the wave function.",
-                "Quantum entanglement creates non-local correlations between distinct qubits such that the quantum state of any individual qubit cannot be described independently of the others. Algorithms leveraging superposition and entanglement, such as Shor's factoring algorithm and Grover's search algorithm, provide theoretical superpolynomial and quadratic speedups over classical algorithms.",
-                "Physical realizations of qubits utilize superconducting transmon circuits, trapped ions, neutral atoms in optical lattices, and topological braiding of anyons. Maintaining quantum coherence against environmental thermal noise and phase decoherence requires sophisticated quantum error correction codes."
             ]
         }
     ],
@@ -116,13 +107,267 @@ LONG_DOCUMENT_SEEDS = {
                 "ரத்த அழுத்தத்தை சீராக பராமரிக்க நரம்பு மண்டலமும் நாளமில்லா சுரப்பிகளும் இணைந்து செயல்படுகின்றன. சரியான ஊட்டச்சத்து, உடற்பயிற்சி மற்றும் மன அமைதி ஆகியவை இதய ஆரோக்கியத்தைப் பாதுகாக்க அவசியமானவை."
             ]
         }
+    ],
+    "bn": [
+        {
+            "title": "কৃত্রিম বুদ্ধিমত্তা ও নিউরাল নেটওয়ার্কের বিকাশ",
+            "paragraphs": [
+                "কৃত্রিম বুদ্ধিমত্তা এবং ডিপ লার্নিং আধুনিক তথ্যপ্রযুক্তির জগতে যুগান্তকারী পরিবর্তন এনেছে। মানব মস্তিষ্কের স্নায়ুতন্ত্রের অনুকরণে তৈরি এই কৃত্রিম নিউরাল নেটওয়ার্ক জটিল ডেটা বিশ্লেষণ করতে পারে। ট্রান্সফরমার মডেলগুলো সমান্তরালভাবে ভাষার বিভিন্ন অংশের সম্পর্ক নিখুঁতভাবে বুঝতে পারে।",
+                "কম্পিউটার ভিশনে কনভোল্যুশনাল নিউরাল নেটওয়ার্ক ছবি শনাক্তকরণ ও মেডিকেল ইমেজিংয়ে বৈপ্লবিক অগ্রগতি এনেছে। কৃত্রিম বুদ্ধিমত্তা আজ স্বয়ংক্রিয় গাড়ি ও রোবোটিক্সে গুরুত্বপূর্ণ ভূমিকা পালন করছে।",
+                "ভাষা প্রক্রিয়াকরণে রিট্রিভাল-অগমেন্টেড জেনারেশন (RAG) মডেলগুলোর সঠিকতা ও নির্ভরযোগ্যতা বহুগুণ বাড়িয়ে দিয়েছে।"
+            ]
+        },
+        {
+            "title": "নবায়নযোগ্য শক্তি ও পরিবেশ সংরক্ষণ",
+            "paragraphs": [
+                "সৌরশক্তি, বায়ূশক্তি এবং জলবিদ্যুৎ প্রকল্প কার্বন নিঃসরণ হ্রাসে প্রধান ভূমিকা পালন করছে। নতুন প্রযুক্তির সাহায্যে সৌর প্যানেলের কার্যক্ষমতা ব্যাপকভাবে বৃদ্ধি পেয়েছে।",
+                "ব্যাটারি স্টোরেজ প্রযুক্তি অতিরিক্ত উৎপাদিত বিদ্যুৎ সঞ্চয় করে গ্রিডের ভারসাম্য রক্ষা করতে সাহায্য করে। গ্রিন হাইড্রোজেন শিল্প খাতে পরিবেশবান্ধব জ্বালানি হিসেবে নতুন সম্ভাবনার দ্বার উন্মোচন করেছে।"
+            ]
+        },
+        {
+            "title": "মানবদেহে রক্ত সংবহনতন্ত্র ও হৃদপিণ্ডের কার্যপ্রণালী",
+            "paragraphs": [
+                "মানব হৃদপিণ্ড চারটি প্রকোষ্ঠবিশিষ্ট একটি শক্তিশালী পেশীবহুল অঙ্গ যা সারা শরীরে রক্ত ও অক্সিজেন পাম্প করে। ডান অলিন্দ ও ডান নিলয় হয়ে রক্ত ফুসফুসে গিয়ে অক্সিজেন গ্রহণ করে।",
+                "অক্সিজেনসমৃদ্ধ রক্ত বাম অলিন্দ ও বাম নিলয়ের মাধ্যমে মহাধমনী হয়ে শরীরের সকল কোষে পৌঁছায়। সুষম খাদ্য ও নিয়মিত ব্যায়াম হৃদযন্ত্রকে সুস্থ রাখতে অপরিহার্য।"
+            ]
+        }
+    ],
+    "as": [
+        {
+            "title": "কৃত্ৰিম বুদ্ধিমত্তা আৰু আধুনিক কম্পিউটিং",
+            "paragraphs": [
+                "কৃত্ৰিম বুদ্ধিমত্তা আৰু ডিপ নিউৰেল নেটৱৰ্কে তথ্যপ্ৰযুক্তিৰ ক্ষেত্ৰত এক যুগান্তকাৰী বিপ্লৱৰ সূচনা কৰিছে। মানুহৰ মগজুৰ স্নায়ুতন্ত্ৰৰ দৰে কাম কৰা এই ব্যৱস্থাই জটিল তথ্য বিশ্লেষণ কৰিব পাৰে।",
+                "কম্পিউটাৰ ভিজন আৰু প্ৰাকৃতিক ভাষা প্ৰক্ৰিয়াকৰণত আধুনিক এআই মডেলে চিকিৎসা সেৱা আৰু যোগাযোগ ব্যৱস্থাত অভূতপূৰ্ব পৰিৱৰ্তন আনিছে।"
+            ]
+        },
+        {
+            "title": "নৱীকৰণযোগ্য শক্তি আৰু পৰিৱেশ সুৰক্ষা",
+            "paragraphs": [
+                "সৌৰশক্তি আৰু জলবিদ্যুৎ প্ৰকল্পই কাৰ্বন নিৰ্গমন ৰোধ কৰাত গুৰুত্বপূৰ্ণ ভূমিকা পালন কৰিছে। আধুনিক বেটাৰী সংৰক্ষণ ব্যৱস্থাই নিৰৱচ্ছিন্ন বিদ্যুৎ যোগান নিশ্চিত কৰে।"
+            ]
+        },
+        {
+            "title": "মানৱ শৰীৰত ৰক্ত সঞ্চালন আৰু হৃদযন্ত্ৰৰ ভূমিকা",
+            "paragraphs": [
+                "হৃদযন্ত্ৰটো চাৰিটা কোঠালীৰে গঠিত এটা পেশীবহুল অংগ যিয়ে সমগ্ৰ শৰীৰত তেজ আৰু অক্সিজেন সঞ্চালন কৰে। সুস্থ জীৱনশৈলীয়ে হৃদযন্ত্ৰ সুস্থ ৰখাত সহায় কৰে।"
+            ]
+        }
+    ],
+    "gu": [
+        {
+            "title": "કૃત્રિમ બુદ્ધિમત્તા અને આધુનિક ન્યુરલ નેટવર્ક્સ",
+            "paragraphs": [
+                "કૃત્રિમ બુદ્ધિમત્તાએ ડીપ ન્યુરલ નેટવર્ક્સના આગમન સાથે કોમ્પ્યુટર વિજ્ઞાનમાં ક્રાંતિકારી પરિવર્તન લાવ્યું છે. આ મોડેલો વિશાળ ડેટામાંથી પેટર્ન ઓળખવામાં અત્યંત સક્ષમ છે.",
+                "કુદરતી ભાષા પ્રક્રિયા અને કોમ્પ્યુટર વિઝનમાં આધુનિક ટ્રાન્સફોર્મર મોડલ વૈશ્વિક સ્તરે ઉત્કૃષ્ટ પરિણામો આપી રહ્યા છે."
+            ]
+        },
+        {
+            "title": "પુનઃપ્રાપ્ય ઊર્જા અને પર્યાવરણ સુરક્ષા",
+            "paragraphs": [
+                "સૌર ઊર્જા અને પવન ઊર્જા પર્યાવરણના રક્ષણ અને સ્વચ્છ વીજળી ઉત્પાદનમાં મહત્ત્વપૂર્ણ યોગદાન આપી રહ્યા છે. બેટરી સંગ્રહ ટેકનોલોજી ઊર્જા પુરવઠો સ્થિર રાખે છે."
+            ]
+        },
+        {
+            "title": "માનવ શરીરમાં રક્ત પરિભ્રમણ અને હૃદયની કાર્યપ્રણાલી",
+            "paragraphs": [
+                "માનવ હૃદય ચાર ખંડો ધરાવતું એક અત્યંત મહત્વપૂર્ણ સ્નાયુબદ્ધ અંગ છે જે સમગ્ર શરીરમાં ઓક્સિજનયુક્ત રક્તનું વહન કરે છે."
+            ]
+        }
+    ],
+    "kn": [
+        {
+            "title": "ಕೃತಕ ಬುದ್ಧಿಮತ್ತೆ ಮತ್ತು ನರಮಂಡಲ ಜಾಲಗಳ ಬೆಳವಣಿಗೆ",
+            "paragraphs": [
+                "ಕೃತಕ ಬುದ್ಧಿಮತ್ತೆ ಮತ್ತು ಡೀಪ್ ಲರ್ನಿಂಗ್ ತಂತ್ರಜ್ಞಾನವು ಗಣಕ ವಿಜ್ಞಾನದಲ್ಲಿ ಮಹತ್ತರ ಬದಲಾವಣೆ ತಂದಿದೆ. ನರಮಂಡಲ ಜಾಲಗಳು ಸಂಕೀರ್ಣ ದತ್ತಾಂಶವನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ವಿಶ್ಲೇಷಿಸುತ್ತವೆ.",
+                "ನೈಸರ್ಗಿಕ ಭಾಷಾ ಸಂಸ್ಕರಣೆ ಮತ್ತು ಕಂಪ್ಯೂಟರ್ ದೃಷ್ಟಿ ಕ್ಷೇತ್ರದಲ್ಲಿ ಟ್ರಾನ್ಸ್‌ಫಾರ್ಮರ್ ಮಾದರಿಗಳು ಅದ್ಭುತ ನಿಖರತೆಯನ್ನು ಸಾಧಿಸಿವೆ."
+            ]
+        },
+        {
+            "title": "ನವೀಕರಿಸಬಹುದಾದ ಇಂಧನ ಮತ್ತು ಹವಾಮಾನ ಸಂರಕ್ಷಣೆ",
+            "paragraphs": [
+                "ಸೌರಶಕ್ತಿ ಮತ್ತು ಪವನ ಶಕ್ತಿಯು ಇಂಗಾಲದ ಹೊರಸೂಸುವಿಕೆಯನ್ನು ಕಡಿಮೆ ಮಾಡಲು ಪ್ರಮುಖ ಸಾಧನಗಳಾಗಿವೆ. ಸುಧಾರಿತ ಬ್ಯಾಟರಿ ತಂತ್ರಜ್ಞಾನವು ಗ್ರಿಡ್ ಸ್ಥಿರತೆಯನ್ನು ಒದಗಿಸುತ್ತದೆ."
+            ]
+        },
+        {
+            "title": "ಮಾನವ ರಕ್ತಪರಿಚಲನಾ ವ್ಯವಸ್ಥೆ ಮತ್ತು ಹೃದಯದ ಕಾರ್ಯ",
+            "paragraphs": [
+                "ಮಾನವ ಹೃದಯವು ನಾಲ್ಕು ಕೋಣೆಗಳನ್ನು ಹೊಂದಿರುವ ಸ್ನಾಯು ಅಂಗವಾಗಿದ್ದು, ದೇಹದಾದ್ಯಂತ ರಕ್ತ ಮತ್ತು ಆಮ್ಲಜನಕವನ್ನು ಪಂಪ್ ಮಾಡುತ್ತದೆ."
+            ]
+        }
+    ],
+    "ml": [
+        {
+            "title": "കൃത്രിമ ബുദ്ധിയും ആധുനിക കമ്പ്യൂട്ടിംഗും",
+            "paragraphs": [
+                "കൃത്രിമ ബുദ്ധിയും ഡീപ് ലേണിംഗും സാങ്കേതിക രംഗത്ത് വലിയ വിപ്ലവമാണ് സൃഷ്ടിച്ചിരിക്കുന്നത്. മനുഷ്യ മസ്തിഷ്കത്തിന് സമാനമായി ന്യൂറൽ നെറ്റ്‌വർക്കുകൾ വിവരങ്ങൾ അപഗ്രഥിക്കുന്നു.",
+                "കമ്പ്യൂട്ടർ വിഷൻ, ഭാഷാ പ്രോസസ്സിംഗ് എന്നിവയിൽ അത്യാധുനിക ട്രാൻസ്ഫോർമർ മോഡലുകൾ വിപ്ലവം സൃഷ്ടിക്കുന്നു."
+            ]
+        },
+        {
+            "title": "പുനരുപയോഗ ഊർജ്ജവും പരിസ്ഥിതി സംരക്ഷണവും",
+            "paragraphs": [
+                "സൗരോർജ്ജവും കാറ്റാടിപ്പാടങ്ങളും കാർബൺ പുറന്തള്ളൽ കുറയ്ക്കുന്നതിൽ നിർണായക പങ്കുവഹിക്കുന്നു. ലിഥിയം അയൺ ബാറ്ററികൾ ഊർജ്ജ സംഭരണത്തിന് സഹായിക്കുന്നു."
+            ]
+        },
+        {
+            "title": "മനുഷ്യ ശരീരത്തിലെ രക്തചംക്രമണ വ്യവസ്ഥയും ഹൃദയവും",
+            "paragraphs": [
+                "മനുഷ്യ ഹൃദയം നാല് അറകളുള്ള ഒരു പേശി അവയവമാണ്, ഇത് ശരീരത്തിലുടനീളം രക്തവും ഓക്സിജനും എത്തിക്കുന്നു."
+            ]
+        }
+    ],
+    "mr": [
+        {
+            "title": "कृत्रिम बुद्धिमत्ता आणि डीप न्यूरल नेटवर्क्स",
+            "paragraphs": [
+                "कृत्रिम बुद्धिमत्ता आणि डीप न्यूरल नेटवर्क्समुळे संगणक शास्त्रात अभूतपूर्व प्रगती झाली आहे. हे मॉडेल्स मानवी मेंदूच्या रचनेवर आधारित असून जटिल डेटा सहज समजून घेतात.",
+                "संगणकीय दृष्टी आणि नैसर्गिक भाषा प्रक्रियेत ट्रान्सफॉर्मर तंत्रज्ञानाने क्रांती घडवून आणली आहे."
+            ]
+        },
+        {
+            "title": "नूतनीकरणक्षम ऊर्जा आणि पर्यावरण संवर्धन",
+            "paragraphs": [
+                "सौर ऊर्जा, पवन ऊर्जा आणि जलविद्युत प्रकल्प कार्बन उत्सर्जन कमी करण्यात महत्त्वाची भूमिका बजावत आहेत. बॅटरी स्टोरेज तंत्रज्ञान वीज पुरवठा स्थिर ठेवते."
+            ]
+        },
+        {
+            "title": "मानवी रक्ताभिसरण संस्था आणि हृदयाचे कार्य",
+            "paragraphs": [
+                "मानवी हृदय चार कप्प्यांचे बनलेले एक स्नायूयुक्त अंग आहे, जे संपूर्ण शरीरात रक्त आणि ऑक्सिजनचा सुरळीत पुरवठा करते."
+            ]
+        }
+    ],
+    "ne": [
+        {
+            "title": "कृत्रिम बुद्धिमत्ता र आधुनिक कम्प्युटिङ",
+            "paragraphs": [
+                "कृत्रिम बुद्धिमत्ता र डिप न्युरल नेटवर्कले सूचना प्रविधिको क्षेत्रमा ठूलो परिवर्तन ल्याएको छ। यी मोडलहरूले जटिल तथ्याङ्कहरूको विश्लेषण गर्न सक्छन्।",
+                "कम्प्युटर भिजन र प्राकृतिक भाषा प्रशोधनमा आधुनिक एआई मोडलहरूले प्रभावकारी काम गरिरहेका छन्।"
+            ]
+        },
+        {
+            "title": "नवीकरणीय ऊर्जा र वातावरण संरक्षण",
+            "paragraphs": [
+                "सौर्य ऊर्जा र जलविद्युतले कार्बन उत्सर्जन कम गर्न र स्वच्छ ऊर्जा उत्पादन गर्न महत्त्वपूर्ण योगदान पुर्‍याउँछन्।"
+            ]
+        },
+        {
+            "title": "मानव शरीरमा रक्तसञ्चार प्रणाली र मुटुको भूमिका",
+            "paragraphs": [
+                "मानव मुटु चार कोठा भएको मांसपेशीयुक्त अंग हो जसले शरीरभरि रगत र अक्सिजन पम्प गर्दछ।"
+            ]
+        }
+    ],
+    "or": [
+        {
+            "title": "କୃତ୍ରିମ ବୁଦ୍ଧିମତ୍ତା ଏବଂ ଆଧୁନିକ ନ୍ୟୁରାଲ ନେଟୱାର୍କ",
+            "paragraphs": [
+                "କୃତ୍ରିମ ବୁଦ୍ଧିମତ୍ତା ଏବଂ ଡିପ୍ ଲର୍ଣ୍ଣିଂ କମ୍ପ୍ୟୁଟର ବିଜ୍ଞାନରେ ଏକ ନୂତନ ବିପ୍ଳବ ସୃଷ୍ଟି କରିଛି। ଏହା ଜଟିଳ ତଥ୍ୟକୁ ସହଜରେ ବିଶ୍ଳେଷଣ କରିପାରେ।",
+                "ପ୍ରାକୃତିକ ଭାଷା ପ୍ରକ୍ରିୟାକରଣ ଏବଂ କମ୍ପ୍ୟୁଟର ଭିଜନରେ ଟ୍ରାନ୍ସଫର୍ମର ମଡେଲ ଅତ୍ୟନ୍ତ ଉପଯୋଗୀ ପ୍ରମାଣିତ ହୋଇଛି।"
+            ]
+        },
+        {
+            "title": "ନବୀକରଣଯୋଗ୍ୟ ଶକ୍ତି ଏବଂ ପରିବେଶ ସୁରକ୍ଷା",
+            "paragraphs": [
+                "ସୌର ଶକ୍ତି ଏବଂ ପବନ ଶକ୍ତି କାର୍ବନ ନିର୍ଗମନ ହ୍ରାସ କରିବାରେ ପ୍ରମୁଖ ଭୂମିକା ଗ୍ରହଣ କରୁଛି। ଉନ୍ନତ ବ୍ୟାଟେରୀ ବ୍ୟବସ୍ଥା ନିରବଚ୍ଛିନ୍ନ ବିଦ୍ୟୁତ ଯୋଗାଣ ସୁନିଶ୍ଚିତ କରେ।"
+            ]
+        },
+        {
+            "title": "ମାନବ ଶରୀରରେ ରକ୍ତ ସଞ୍ଚାଳନ ଓ ହୃଦୟର କାର୍ଯ୍ୟ",
+            "paragraphs": [
+                "ମାନବ ହୃଦୟ ଚାରୋଟି କୋଠରୀ ବିଶିଷ୍ଟ ଏକ ମାଂସପେଶୀ ଅଙ୍ଗ ଯାହା ଶରୀରର ସମସ୍ତ ଅଂଶକୁ ରକ୍ତ ଏବଂ ଅମ୍ଳଜାନ ପମ୍ପ କରିଥାଏ।"
+            ]
+        }
+    ],
+    "pa": [
+        {
+            "title": "ਨਕਲੀ ਬੁੱਧੀਮੱਤਾ ਅਤੇ ਆਧੁਨਿਕ ਨਿਊਰਲ ਨੈੱਟਵਰਕ",
+            "paragraphs": [
+                "ਨਕਲੀ ਬੁੱਧੀਮੱਤਾ ਅਤੇ ਡੀਪ ਲਰਨਿੰਗ ਨੇ ਤਕਨਾਲੋਜੀ ਦੇ ਖੇਤਰ ਵਿੱਚ ਵੱਡਾ ਬਦਲਾਅ ਲਿਆਂਦਾ ਹੈ। ਨਿਊਰਲ ਨੈੱਟਵਰਕ ਗੁੰਝਲਦਾਰ ਡੇਟਾ ਦਾ ਸਹੀ ਵਿਸ਼ਲੇਸ਼ਣ ਕਰਦੇ ਹਨ।",
+                "ਕੰਪਿਊਟਰ ਵਿਜ਼ਨ ਅਤੇ ਭਾਸ਼ਾ ਪ੍ਰੋਸੈਸਿੰਗ ਵਿੱਚ ਟ੍ਰਾਂਸਫਾਰਮਰ ਮਾਡਲ ਬਹੁਤ ਵਧੀਆ ਨਤੀਜੇ ਪ੍ਰਦਾਨ ਕਰ ਰਹੇ ਹਨ।"
+            ]
+        },
+        {
+            "title": "ਨਵਿਆਉਣਯੋਗ ਊਰਜਾ ਅਤੇ ਵਾਤਾਵਰਣ ਸੁਰੱਖਿਆ",
+            "paragraphs": [
+                "ਸੌਰ ਊਰਜਾ ਅਤੇ ਪੌਣ ਊਰਜਾ ਕਾਰਬਨ ਨਿਕਾਸ ਨੂੰ ਘਟਾਉਣ ਵਿੱਚ ਅਹਿਮ ਭੂਮਿਕਾ ਨਿਭਾ ਰਹੀਆਂ ਹਨ। ਬੈਟਰੀ ਸਟੋਰੇਜ ਗਰਿੱਡ ਨੂੰ ਸਥਿਰਤਾ ਪ੍ਰਦਾਨ ਕਰਦੀ ਹੈ।"
+            ]
+        },
+        {
+            "title": "ਮਨੁੱਖੀ ਸਰੀਰ ਵਿੱਚ ਖੂਨ ਦਾ ਸੰਚਾਰ ਅਤੇ ਦਿਲ ਦਾ ਕੰਮ",
+            "paragraphs": [
+                "ਮਨੁੱਖੀ ਦਿਲ ਚਾਰ ਖਾਨਿਆਂ ਵਾਲਾ ਇੱਕ ਮਾਸਪੇਸ਼ੀ ਅੰਗ ਹੈ ਜੋ ਪੂਰੇ ਸਰੀਰ ਵਿੱਚ ਖੂਨ ਅਤੇ ਆਕਸੀਜਨ ਦੀ ਸਪਲਾਈ ਕਰਦਾ ਹੈ।"
+            ]
+        }
+    ],
+    "te": [
+        {
+            "title": "కృత్రిమ మేధస్సు మరియు ఆధునిక న్యూరల్ నెట్‌వర్క్‌లు",
+            "paragraphs": [
+                "కృత్రిమ మేధస్సు మరియు డీప్ లెర్నింగ్ కంప్యూటర్ విజ్ఞానంలో విప్లవాత్మక మార్పులను తీసుకొచ్చాయి. న్యూరల్ నెట్‌వర్క్‌లు సంక్లిష్టమైన డేటాను సులభంగా విశ్లేషిస్తాయి.",
+                "కంప్యూటర్ విజన్ మరియు నేచురల్ లాంగ్వేజ్ ప్రాసెసింగ్‌లో ట్రాన్స్‌ఫార్మర్ నమూనాలు అత్యుత్తమ ఫలితాలను అందిస్తున్నాయి."
+            ]
+        },
+        {
+            "title": "పునరుత్పాదక శక్తి మరియు పర్యావరణ పరిరక్షణ",
+            "paragraphs": [
+                "సౌర శక్తి మరియు పవన శక్తి కర్బన ఉద్గారాలను తగ్గించడంలో కీలక పాత్ర పోషిస్తున్నాయి. బ్యాటరీ నిల్వ వ్యవస్థలు నిరంతర విద్యుత్ సరఫరాను అందిస్తాయి."
+            ]
+        },
+        {
+            "title": "మానవ రక్తప్రసరణ వ్యవస్థ మరియు గుండె పనితీరు",
+            "paragraphs": [
+                "మానవ గుండె నాలుగు గదులు కలిగిన కండరాల అవయవం, ఇది శరీరం అంతటా రక్తం మరియు ఆక్సిజన్‌ను సరఫరా చేస్తుంది."
+            ]
+        }
+    ],
+    "ur": [
+        {
+            "title": "مصنوعی ذہانت اور جدید نیورل نیٹ ورکس",
+            "paragraphs": [
+                "مصنوعی ذہانت اور ڈیپ لرننگ نے کمپیوٹر سائنس میں ایک نیا انقلاب برپا کیا ہے۔ یہ ماڈلز پیچیدہ ڈیٹا کا تجزیہ کرنے کی بھرپور صلاحیت رکھتے ہیں۔",
+                "قدرتی زبان کی پروسیسنگ اور کمپیوٹر وژن میں ٹرانسفارمر ماڈلز نے نمایاں کامیابیاں حاصل کی ہیں۔"
+            ]
+        },
+        {
+            "title": "قابل تجدید توانائی اور ماحولیاتی تحفظ",
+            "paragraphs": [
+                "شمسی توانائی اور ہوائی توانائی کاربن کے اخراج کو کم کرنے میں اہم کردار ادا کرتی ہیں۔ جدید بیٹری اسٹوریج سسٹم گرڈ کو استحکام فراہم کرتا ہے۔"
+            ]
+        },
+        {
+            "title": "انسانی دوران خون کا نظام اور دل کے افعال",
+            "paragraphs": [
+                "انسانی دل چار خانوں پر مشتمل ایک پٹھوں کا عضو ہے جو پورے جسم میں خون اور آکسیجن پمپ کرتا ہے۔"
+            ]
+        }
+    ],
+    "sa": [
+        {
+            "title": "कृत्रिमबुद्धिः आधुनिकसङ्गणकशास्त्रं च",
+            "paragraphs": [
+                "कृत्रिमबुद्धिः डीप-न्यूरल-नेटवर्क-माध्यमेन सङ्गणकक्षेत्रे महतीं क्रान्तिम् अजनयत्। एते प्रतिरूपाः जटिलदत्तांशस्य विश्लेषणं कर्तुं समर्थाः सन्ति।"
+            ]
+        },
+        {
+            "title": "नवीकरणीय-ऊर्जा पर्यावरणसंरक्षणं च",
+            "paragraphs": [
+                "सौर-ऊर्जा पवन-ऊर्जा च पर्यावरणरक्षणे महत्त्वपूर्णं स्थानं भजतः। एतेन प्रदूषणं न्यूनीभवति।"
+            ]
+        },
+        {
+            "title": "मानवशरीरे रक्तसञ्चारतन्त्रं हृदयस्य कार्यं च",
+            "paragraphs": [
+                "मानवहृदयं चतुष्कोष्ठयुक्तम् अङ्गं वर्तते यत् सम्पूर्णशरीरे रक्तं प्राणावायुं च सञ्चारयति।"
+            ]
+        }
     ]
 }
 
-def generate_long_documents_for_lang(lang: str, target_count: int = 30) -> List[Dict[str, Any]]:
+def generate_long_documents_for_lang(lang: str, target_count: int = 25) -> List[Dict[str, Any]]:
     """
     Produce a set of long documents for a language.
-    Uses curated multi-paragraph templates and topic synthesis across diverse domains.
+    Uses curated multi-paragraph templates across science, technology, cardiology, and energy.
     """
     lang_info = config.get_language_info(lang)
     lang_name = lang_info.get("name", lang)
@@ -146,40 +391,29 @@ def generate_long_documents_for_lang(lang: str, target_count: int = 30) -> List[
         doc_idx += 1
         
     # 2. Expand with multi-domain composite long articles to reach target_count
-    # Topics: Computer Science, Astronomy, Marine Biology, Agriculture, Economics, Civil Engineering
     domains = [
-        ("Quantum Computing & Cryptography", "क्वांटम कंप्यूटिंग", "குவாண்டம் கணினி"),
-        ("Ocean Acidification & Marine Ecosystems", "महासागर पारिस्थितिकी", "கடல் சுற்றுச்சூழல்"),
-        ("Sustainable Agriculture & Crop Genetics", "टिकाऊ कृषि", "நிலையான விவசாயம்"),
-        ("Space Exploration & Mars Colonization", "अंतरिक्ष अनुसंधान", "விண்வெளி ஆய்வு"),
-        ("Macroeconomic Policies & Global Trade", "अर्थशास्त्र और वैश्विक व्यापार", "பொருளாதாரம் மற்றும் வர்த்தகம்"),
-        ("Cybersecurity & Zero Trust Architecture", "साइबर सुरक्षा", "சைபர் பாதுகாப்பு"),
-        ("Neuroscience & Cognitive Mapping", "न्यूरोसाइंस और मस्तिष्क", "நரம்பியல் அறிவியல்"),
-        ("Urban Planning & Smart Infrastructure", "स्मार्ट शहरी नियोजन", "ஸ்மார்ட் நகர திட்டமிடல்"),
+        "Quantum Computing & Cryptography",
+        "Ocean Acidification & Marine Ecosystems",
+        "Sustainable Agriculture & Crop Genetics",
+        "Space Exploration & Mars Colonization",
+        "Macroeconomic Policies & Global Trade",
+        "Cybersecurity & Zero Trust Architecture",
+        "Neuroscience & Cognitive Mapping",
+        "Urban Planning & Smart Infrastructure",
     ]
     
-    for dom_idx, (en_dom, hi_dom, ta_dom) in enumerate(domains):
+    for dom_idx, en_dom in enumerate(domains):
         if doc_idx >= target_count:
             break
         
-        # Pick appropriate topic label
-        if lang == "hi":
-            dom_title = f"{hi_dom} पर विस्तृत अध्ययन भाग {dom_idx + 1}"
-            base_p = seeds[doc_idx % len(seeds)]["paragraphs"]
-        elif lang == "ta":
-            dom_title = f"{ta_dom} பற்றிய விரிவான ஆய்வு பகுதி {dom_idx + 1}"
-            base_p = seeds[doc_idx % len(seeds)]["paragraphs"]
-        else:
-            dom_title = f"{en_dom} - Comprehensive Research Review Vol. {dom_idx + 1}"
-            base_p = seeds[doc_idx % len(seeds)]["paragraphs"]
+        base_seed = seeds[doc_idx % len(seeds)]
+        base_p = base_seed["paragraphs"]
+        dom_title = f"{base_seed['title']} - Part {dom_idx + 1}"
             
-        # Compose multi-paragraph document
         composed_paras = base_p + [
-            f"Extended analysis section {i+1} covering core theoretical formulations, empirical observations, and quantitative benchmarks."
+            f"Extended analysis section {i+1} covering theoretical formulations and quantitative benchmarks in {lang_name}."
             if lang == "en" else
-            f"विस्तारित विश्लेषण अनुभाग {i+1} जिसमें सैद्धांतिक सूत्र, अनुभवजन्य अवलोकन और मात्रात्मक निष्कर्ष शामिल हैं।"
-            if lang == "hi" else
-            f"விரிவான பகுப்பாய்வு பிரிவு {i+1} கோட்பாட்டு சூத்திரங்கள் மற்றும் அனுபவ தரவுகளை உள்ளடக்கியது."
+            f"{lang_name} Extended section {i+1}: सैद्धांतिक सूत्र, अनुभवजन्य अवलोकन और मात्रात्मक निष्कर्ष।"
             for i in range(2)
         ]
         

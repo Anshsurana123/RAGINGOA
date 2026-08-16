@@ -18,8 +18,8 @@ load_dotenv()
 # ==========================================
 # 1. LANGUAGE CONFIGURATION (Single Source of Truth)
 # ==========================================
-# Default initial scope: Hindi (hi), Tamil (ta), and English (en)
-LANGUAGES = ["hi", "ta", "en"]
+# Active languages: 14 Indic languages + English
+LANGUAGES = ["as", "bn", "gu", "hi", "kn", "ml", "mr", "ne", "or", "pa", "sa", "ta", "te", "ur", "en"]
 
 # Comprehensive registry of supported Indic language metadata for MSMARCO-XI & STT mapping
 SUPPORTED_LANGUAGE_REGISTRY = {
