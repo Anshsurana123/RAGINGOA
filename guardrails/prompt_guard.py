@@ -36,11 +36,11 @@ PROMPT_GUARD_LABELS = {
 
 # Fast heuristic signatures for Indirect Prompt Injection (IPI) in context chunks
 IPI_SUSPICIOUS_PATTERNS = [
-    re.compile(r"(?i)\b(ignore|disregard|forget|override|bypass)\s+(all\s+)?(previous|prior|above|context|system|\s|and)*\s*(instructions|rules|prompts|directions|secrets|guidelines)\b"),
+    re.compile(r"(?i)\b(ignore|disregard|forget|override|bypass)\s+(all\s+)?(previous|prior|above|context|system|\s|and)*\s*(instructions|rules|prompts|directions|secrets|guidelines|constraints)\b"),
     re.compile(r"(?i)\b(system\s*prompt|override\s*safety|bypass\s*filter|DAN\s*mode|jailbreak|prompt\s*injection)\b"),
-    re.compile(r"(?i)\b(developer\s*mode\s*enabled|unfiltered\s*mode|disregard\s+(all\s+)?guidelines)\b"),
+    re.compile(r"(?i)\b(developer\s*mode\s*enabled|unfiltered\s*mode|disregard\s+(all\s+)?(guidelines|constraints|rules))\b"),
     re.compile(r"(?i)\b(you\s*are\s*now\s*in\s*unrestricted\s*mode|act\s*as\s*an\s*unfiltered\s*ai)\b"),
-    re.compile(r"(?i)\b(output|print|display|reveal|show|dump|repeat|leak|exfiltrate|tell\s+me)\s+(all\s+)?(your\s+)?(system\s*(prompt|instructions|rules|message|secrets)|developer\s*prompt)\b"),
+    re.compile(r"(?i)\b(output|print|display|reveal|show|dump|repeat|leak|exfiltrate|tell\s+me)\s+(all\s+)?(your\s+)?(system\s*(prompt|instructions|rules|message|secrets)|developer\s*(prompt|instructions|rules|constraints)|internal\s*(instructions|rules))\b"),
     re.compile(r"<\|im_start\|>|<\|system\|>|\[INST\]|<<SYS>>|<s>|<\/s>|<script|javascript:|onerror="),
 ]
 
@@ -131,10 +131,11 @@ class PromptGuardDetector:
         self.engine_type = "disabled"
 
     def _try_init_onnx(self) -> bool:
-        """Attempt to initialize ONNX Runtime session."""
+        """Attempt to initialize ONNX Runtime session with INT8 dynamic quantization."""
         try:
             import onnxruntime as ort
             onnx_path = self.onnx_model_path
+            int8_path = onnx_path.parent / f"{onnx_path.stem}_int8.onnx"
 
             # Check if local ONNX file exists
             if not onnx_path.exists() or onnx_path.stat().st_size < 1000000:
@@ -146,18 +147,23 @@ class PromptGuardDetector:
                         filename="model.onnx",
                     )
                     onnx_path = Path(downloaded)
+                    int8_path = onnx_path.parent / f"{onnx_path.stem}_int8.onnx"
                 except Exception as dl_err:
                     logger.warning(f"Could not auto-download ONNX model from {self.hf_repo_id}: {dl_err}")
                     return False
 
+            load_path = int8_path if (int8_path.exists() and int8_path.stat().st_size > 1000000) else onnx_path
+
             sess_options = ort.SessionOptions()
-            sess_options.intra_op_num_threads = config.ONNX_NUM_THREADS
+            num_threads = getattr(config, "ONNX_NUM_THREADS", 2)
+            sess_options.intra_op_num_threads = num_threads
             sess_options.inter_op_num_threads = 1
             sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
             sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
+            logger.info(f"Loading Prompt-Guard ONNX session from: {load_path} (threads={num_threads})")
             self.session = ort.InferenceSession(
-                str(onnx_path),
+                str(load_path),
                 sess_options,
                 providers=["CPUExecutionProvider"],
             )
@@ -210,7 +216,7 @@ class PromptGuardDetector:
         mode: str = "prompt",
         temperature: Optional[float] = None,
         threshold: Optional[float] = None,
-        max_length: int = 128,
+        max_length: int = 64,
     ) -> PromptGuardResult:
         """
         Runs single-pass discriminative classification on input text.
@@ -238,7 +244,7 @@ class PromptGuardDetector:
         mode: str = "context",
         temperature: Optional[float] = None,
         threshold: Optional[float] = None,
-        max_length: int = 128,
+        max_length: int = 64,
     ) -> List[PromptGuardResult]:
         """
         Runs single-pass batched discriminative classification across multiple texts.
@@ -350,16 +356,24 @@ class PromptGuardDetector:
                         pred_label = "BENIGN" if prob_benign >= prob_injection else "INJECTION"
                         reason = f"Context chunk safe (jailbreak_risk={prob_jailbreak:.4f})"
                 else:
+                    is_suspicious = self._is_suspicious_text(cleaned_texts[orig_idx])
                     risk_score = prob_jailbreak
+                    
                     if prob_jailbreak >= t_thresh:
                         is_safe = False
                         pred_label = "JAILBREAK"
                         reason = f"Blocked by Prompt-Guard: Jailbreak attack detected (confidence={prob_jailbreak:.4f} >= {t_thresh})"
                         logger.warning(f"PromptGuard blocked prompt [{pred_label}]: {reason}")
+                    elif is_suspicious or (prob_injection >= 0.90 and prob_benign < 0.05 and prob_jailbreak >= 0.01):
+                        is_safe = False
+                        pred_label = "INJECTION"
+                        risk_score = max(prob_jailbreak, prob_injection)
+                        reason = f"Blocked by Prompt-Guard: Prompt Injection detected (confidence={prob_injection:.4f})"
+                        logger.warning(f"PromptGuard blocked prompt [{pred_label}]: {reason}")
                     else:
                         is_safe = True
                         pred_label = "BENIGN"
-                        reason = f"Prompt-Guard safe (jailbreak_risk={risk_score:.4f})"
+                        reason = f"Prompt-Guard safe (risk={risk_score:.4f})"
 
                 results[orig_idx] = PromptGuardResult(
                     is_safe=is_safe,

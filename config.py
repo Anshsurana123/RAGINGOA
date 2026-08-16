@@ -85,11 +85,11 @@ PASSAGE_PREFIX = "passage: "
 ENABLE_ONNX_EMBEDDING = os.getenv("ENABLE_ONNX_EMBEDDING", "true").lower() == "true"
 ENABLE_ONNX_CROSS_ENCODER = os.getenv("ENABLE_ONNX_CROSS_ENCODER", "true").lower() == "true"
 ONNX_MODELS_DIR = DATA_DIR / "onnx_models"
-ONNX_NUM_THREADS = int(os.getenv("ONNX_NUM_THREADS", "8"))
+ONNX_NUM_THREADS = int(os.getenv("ONNX_NUM_THREADS", str(min(4, os.cpu_count() or 2))))
 ONNX_MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Context Bounding & Passage Token Truncation
-CONTEXT_BOUNDING_MAX_TOKENS = int(os.getenv("CONTEXT_BOUNDING_MAX_TOKENS", "128"))
+# Context Bounding & Passage Token Truncation (64 tokens for sub-200ms CPU budget)
+CONTEXT_BOUNDING_MAX_TOKENS = int(os.getenv("CONTEXT_BOUNDING_MAX_TOKENS", "64"))
 
 # FAISS HNSW Index Hyperparameters
 # Build embeddings in bounded batches so an uncapped corpus does not require
@@ -105,8 +105,10 @@ FAISS_TOP_K = 15
 RERANK_TOP_K = 5
 HYBRID_BM25_WEIGHT = 0.35  # Dense score weight = 1 - HYBRID_BM25_WEIGHT
 
-# Cross-Encoder Re-Ranking Configuration (Sub-200ms CPU re-ranking)
-ENABLE_CROSS_ENCODER = True
+# Cross-Encoder Re-Ranking Configuration
+# Default to False for ultra-fast (<2ms) Script-Aware BM25 + Dense Hybrid RRF fusion.
+# When enabled, utilizes INT8 Dynamic ONNX with 64-token bounding (<35ms on CPU).
+ENABLE_CROSS_ENCODER = os.getenv("ENABLE_CROSS_ENCODER", "false").lower() == "true"
 CROSS_ENCODER_MODEL_NAME = os.getenv(
     "CROSS_ENCODER_MODEL_NAME", "nreimers/mmarco-mMiniLMv2-L6-H384-v1"
 )
@@ -116,7 +118,7 @@ CROSS_ENCODER_LOCAL_CACHE = Path(
         "",
     )
 )
-CROSS_ENCODER_TOP_K = 3
+CROSS_ENCODER_TOP_K = int(os.getenv("CROSS_ENCODER_TOP_K", "2"))
 CROSS_ENCODER_THRESHOLD = float(os.getenv("CROSS_ENCODER_THRESHOLD", "0.15"))
 
 

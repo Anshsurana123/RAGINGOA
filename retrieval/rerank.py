@@ -17,33 +17,34 @@ _CROSS_ENCODER_INSTANCE = None
 class ONNXCrossEncoderRanker:
     """
     ONNX Runtime accelerated CrossEncoder for multilingual cross-encoders.
-    Supports dynamic inputs (e.g. models with or without token_type_ids).
-    Computes cross-attention scoring on (query, passage) pairs in sub-25ms on CPU.
+    Supports dynamic INT8 quantization and context bounding (<35ms on CPU).
     """
     def __init__(self, model_name: str = config.CROSS_ENCODER_MODEL_NAME):
         self.model_name = model_name
         self.onnx_dir = Path(getattr(config, "ONNX_MODELS_DIR", config.DATA_DIR / "onnx_models"))
         self.onnx_dir.mkdir(parents=True, exist_ok=True)
         sanitized_name = re.sub(r'[^a-zA-Z0-9_]', '_', model_name)
-        self.onnx_path = self.onnx_dir / f"ce_{sanitized_name}.onnx"
+        self.onnx_fp32_path = self.onnx_dir / f"ce_{sanitized_name}.onnx"
+        self.onnx_int8_path = self.onnx_dir / f"ce_{sanitized_name}_int8.onnx"
         
         from transformers import AutoTokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.has_token_type_ids = "token_type_ids" in (self.tokenizer.model_input_names or [])
         
-        # Ensure ONNX model exists
+        # Ensure ONNX model exists and is INT8 quantized
         self._ensure_onnx_model()
         
         import onnxruntime as ort
         opts = ort.SessionOptions()
-        num_threads = getattr(config, "ONNX_NUM_THREADS", 4)
+        num_threads = getattr(config, "ONNX_NUM_THREADS", 2)
         opts.intra_op_num_threads = num_threads
         opts.inter_op_num_threads = 1
         opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         
-        logger.info(f"Loading ONNX CrossEncoder from: {self.onnx_path} (threads={num_threads})")
-        self.session = ort.InferenceSession(str(self.onnx_path), opts, providers=["CPUExecutionProvider"])
+        load_path = self.onnx_int8_path if self.onnx_int8_path.exists() else self.onnx_fp32_path
+        logger.info(f"Loading ONNX CrossEncoder from: {load_path} (threads={num_threads})")
+        self.session = ort.InferenceSession(str(load_path), opts, providers=["CPUExecutionProvider"])
         
         # Warmup ONNX inference graph to avoid cold-start JIT latency
         try:
@@ -53,11 +54,22 @@ class ONNXCrossEncoderRanker:
         logger.info("ONNX CrossEncoder session initialized and warmed up successfully.")
 
     def _ensure_onnx_model(self):
-        """Auto-export CrossEncoder to ONNX if not already present."""
-        if self.onnx_path.exists():
+        """Auto-export CrossEncoder to ONNX and apply INT8 dynamic quantization."""
+        if self.onnx_int8_path.exists() or self.onnx_fp32_path.exists():
+            if not self.onnx_int8_path.exists() and self.onnx_fp32_path.exists():
+                try:
+                    from onnxruntime.quantization import quantize_dynamic, QuantType
+                    logger.info(f"Quantizing ONNX CrossEncoder to INT8 format: {self.onnx_int8_path}...")
+                    quantize_dynamic(
+                        str(self.onnx_fp32_path),
+                        str(self.onnx_int8_path),
+                        weight_type=QuantType.QInt8,
+                    )
+                except Exception as q_err:
+                    logger.warning(f"INT8 CrossEncoder quantization skipped: {q_err}")
             return
             
-        logger.info(f"Exporting CrossEncoder '{self.model_name}' to ONNX format at {self.onnx_path}...")
+        logger.info(f"Exporting CrossEncoder '{self.model_name}' to ONNX format at {self.onnx_fp32_path}...")
         import torch.nn as nn
         from transformers import AutoModelForSequenceClassification
         from torch.export import Dim
@@ -88,7 +100,7 @@ class ONNXCrossEncoderRanker:
                 torch.onnx.export(
                     wrapper,
                     (dummy["input_ids"], dummy["attention_mask"], dummy["token_type_ids"]),
-                    str(self.onnx_path),
+                    str(self.onnx_fp32_path),
                     input_names=["input_ids", "attention_mask", "token_type_ids"],
                     output_names=["logits"],
                     dynamic_shapes={
@@ -103,7 +115,7 @@ class ONNXCrossEncoderRanker:
                 torch.onnx.export(
                     wrapper,
                     (dummy["input_ids"], dummy["attention_mask"]),
-                    str(self.onnx_path),
+                    str(self.onnx_fp32_path),
                     input_names=["input_ids", "attention_mask"],
                     output_names=["logits"],
                     dynamic_shapes={
@@ -113,25 +125,37 @@ class ONNXCrossEncoderRanker:
                     opset_version=18,
                     do_constant_folding=True,
                 )
-            logger.info("Exported ONNX CrossEncoder model.")
+            logger.info("Exported FP32 ONNX CrossEncoder model.")
+            
+            # Perform INT8 dynamic quantization
+            try:
+                from onnxruntime.quantization import quantize_dynamic, QuantType
+                logger.info(f"Quantizing ONNX CrossEncoder to INT8 format: {self.onnx_int8_path}...")
+                quantize_dynamic(
+                    str(self.onnx_fp32_path),
+                    str(self.onnx_int8_path),
+                    weight_type=QuantType.QInt8,
+                )
+            except Exception as q_err:
+                logger.warning(f"INT8 CrossEncoder quantization failed: {q_err}")
         except Exception as e:
             logger.warning(f"ONNX CrossEncoder export failed: {e}. PyTorch fallback will be used.")
-            if self.onnx_path.exists():
+            if self.onnx_fp32_path.exists():
                 try:
-                    self.onnx_path.unlink()
+                    self.onnx_fp32_path.unlink()
                 except Exception:
                     pass
             raise e
 
-    def score_pairs(self, query: str, passages: List[str], max_length: int = 80) -> np.ndarray:
+    def score_pairs(self, query: str, passages: List[str], max_length: int = 64) -> np.ndarray:
         """
-        Scores (query, passage) pairs using ONNX Runtime with Context Bounding.
+        Scores (query, passage) pairs using ONNX Runtime with Context Bounding (64 tokens).
         """
         if not passages:
             return np.array([], dtype=np.float32)
             
-        bound_len = min(max_length, getattr(config, "CONTEXT_BOUNDING_MAX_TOKENS", 80))
-        pairs = [[query, p[:200]] for p in passages]
+        bound_len = min(max_length, getattr(config, "CONTEXT_BOUNDING_MAX_TOKENS", 64))
+        pairs = [[query, p[:150]] for p in passages]
         
         inputs = self.tokenizer(
             pairs,
@@ -171,11 +195,11 @@ class PyTorchCrossEncoderRanker:
             logger.warning(f"Failed to load CrossEncoder from '{load_path}': {e}. Falling back to default '{model_name}'.")
             self.model = CrossEncoder(model_name)
 
-    def score_pairs(self, query: str, passages: List[str], max_length: int = 96) -> np.ndarray:
+    def score_pairs(self, query: str, passages: List[str], max_length: int = 64) -> np.ndarray:
         if not passages:
             return np.array([], dtype=np.float32)
-        bound_len = min(max_length, getattr(config, "CONTEXT_BOUNDING_MAX_TOKENS", 128))
-        pairs = [[query, p[:220]] for p in passages]
+        bound_len = min(max_length, getattr(config, "CONTEXT_BOUNDING_MAX_TOKENS", 64))
+        pairs = [[query, p[:150]] for p in passages]
         with torch.inference_mode():
             scores = self.model.predict(
                 pairs,

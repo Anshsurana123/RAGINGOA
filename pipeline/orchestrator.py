@@ -50,7 +50,7 @@ class RAGPipelineOrchestrator:
         self.stt_client = get_stt_client()
         self.llm_adapter = get_llm_adapter()
         self.answer_cache = get_answer_cache()
-        self.cross_encoder = get_cross_encoder()
+        self.cross_encoder = get_cross_encoder() if getattr(config, "ENABLE_CROSS_ENCODER", False) else None
         self.prompt_guard = get_prompt_guard_detector()
 
     async def execute(self, request: QueryRequest) -> QueryResponse:
@@ -375,8 +375,8 @@ class RAGPipelineOrchestrator:
             top_k=config.RERANK_TOP_K,
         )
         
-        # Cross-Encoder deep cross-attention re-ranking on top candidates
-        if getattr(config, "ENABLE_CROSS_ENCODER", True):
+        # Cross-Encoder deep cross-attention re-ranking on top candidates (if enabled)
+        if getattr(config, "ENABLE_CROSS_ENCODER", False):
             reranked_chunks = rerank_cross_encoder(
                 query_text=raw_query_text,
                 candidates=bm25_reranked,
@@ -429,12 +429,17 @@ class RAGPipelineOrchestrator:
                 start_t=start_pipeline_t,
             )
             
-        ce_info = f", CE={top_ce_score:.4f}" if top_ce_score is not None else ""
+        if getattr(config, "ENABLE_CROSS_ENCODER", False):
+            ce_info = f", CE={top_ce_score:.4f}" if top_ce_score is not None else ""
+            ranking_details = f"BM25 + Cross-Encoder hybrid ranking on top-{len(reranked_chunks)} candidates (confidence={top_conf:.4f}{ce_info})"
+        else:
+            ranking_details = f"Script-Aware BM25 + Dense Hybrid Fusion on top-{len(reranked_chunks)} candidates (confidence={top_conf:.4f})"
+
         timings.append(StageTiming(
             stage="bm25_cross_encoder_reranking",
             ms=round((time.perf_counter() - rerank_start_t) * 1000, 2),
             success=True,
-            details=f"BM25 + Cross-Encoder hybrid ranking on top-{len(reranked_chunks)} candidates (confidence={top_conf:.4f}{ce_info})",
+            details=ranking_details,
         ))
 
         # -------------------------------------------------------------

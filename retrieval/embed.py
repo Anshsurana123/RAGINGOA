@@ -48,7 +48,7 @@ class ONNXMultilingualE5Embedder:
         
         import onnxruntime as ort
         opts = ort.SessionOptions()
-        num_threads = getattr(config, "ONNX_NUM_THREADS", 4)
+        num_threads = getattr(config, "ONNX_NUM_THREADS", 2)
         opts.intra_op_num_threads = num_threads
         opts.inter_op_num_threads = 1
         opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
@@ -139,7 +139,7 @@ class ONNXMultilingualE5Embedder:
             prefixed,
             padding=True,
             truncation=True,
-            max_length=getattr(config, "CONTEXT_BOUNDING_MAX_TOKENS", 128),
+            max_length=getattr(config, "CONTEXT_BOUNDING_MAX_TOKENS", 64),
             return_tensors="np",
         )
         ort_inputs = {
@@ -167,7 +167,7 @@ class ONNXMultilingualE5Embedder:
                 batch,
                 padding=True,
                 truncation=True,
-                max_length=getattr(config, "CONTEXT_BOUNDING_MAX_TOKENS", 128),
+                max_length=getattr(config, "CONTEXT_BOUNDING_MAX_TOKENS", 64),
                 return_tensors="np",
             )
             ort_inputs = {
