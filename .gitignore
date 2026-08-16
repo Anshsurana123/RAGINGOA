@@ -39,7 +39,7 @@ data/onnx_models/
 !data/processed/en_longdocs.jsonl
 !data/processed/hi_longdocs.jsonl
 !data/processed/mr_longdocs.jsonl
-*.tar.gz
+data/indexes/*.log
 *.zip
 
 # Environment & secrets
