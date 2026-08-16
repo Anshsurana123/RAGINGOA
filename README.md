@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: Instrumented, low-latency Voice RAG for 14 Indic Languages + English
+short_description: Voice RAG for 14 Indic Languages + English
 ---
 
 # 🌴 Hacker House Goa 2026: Voice-Enabled Multilingual Indic RAG
