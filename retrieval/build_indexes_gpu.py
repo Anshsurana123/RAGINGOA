@@ -19,12 +19,10 @@ import torch
 # Ensure project root in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config
-from data.chunker import (
-    process_corpus_passage_native,
-    process_longdocs_sentence_window,
-    process_longdocs_semantic,
-    Chunk,
-)
+from chunking.metadata import Chunk
+from chunking.passage_native import process_corpus_passage_native
+from chunking.sentence_window import process_longdocs_sentence_window
+from chunking.semantic import process_longdocs_semantic
 from retrieval.index_faiss import StrategyVectorIndex
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", force=True)
