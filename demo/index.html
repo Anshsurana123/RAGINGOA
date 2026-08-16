@@ -357,12 +357,16 @@
           
           <!-- Left: Telemetry Breakdown Box (Dark Forest Console Box) -->
           <div class="lg:col-span-6 bg-jungle-900 border-2 border-black p-4 text-white shadow-brutal-sm flex flex-col justify-between gap-3">
-            <div class="flex items-center justify-between border-b border-emerald-800/60 pb-2 font-mono text-xs">
+            <div class="flex items-center justify-between border-b border-emerald-800/60 pb-2 font-mono text-xs flex-wrap gap-2">
               <span class="text-hhpink flex items-center gap-1 font-bold">
                 <span class="w-2 h-2 rounded-full bg-hhpink animate-ping"></span>
                 <span>● TELEMETRY CONSOLE</span>
               </span>
-              <span id="totalLatencyDisplay" class="text-hhemerald font-bold font-mono">TOTAL: --</span>
+              <div class="flex items-center gap-2.5 font-mono text-[11px]">
+                <span class="text-slate-300">RAG (w/o STT): <strong id="ragLatencyDisplay" class="text-hhemerald font-bold">--</strong></span>
+                <span class="text-slate-500 font-bold">|</span>
+                <span class="text-slate-300">TOTAL (w/ STT): <strong id="totalLatencyDisplay" class="text-amber-400 font-bold">--</strong></span>
+              </div>
             </div>
 
             <!-- 5 Stage Latencies -->
@@ -510,6 +514,7 @@
     const crossLingualToggle = document.getElementById("crossLingualToggle");
 
     // Telemetry DOM
+    const ragLatencyDisplay = document.getElementById("ragLatencyDisplay");
     const totalLatencyDisplay = document.getElementById("totalLatencyDisplay");
     const sttLatencyVal = document.getElementById("sttLatencyVal");
     const embeddingLatencyVal = document.getElementById("embeddingLatencyVal");
@@ -826,8 +831,10 @@
       guardrailLatencyVal.textContent = formatLatency(guardrailMs);
       genLatencyVal.textContent = formatLatency(genMs);
 
-      const totalMs = data.total_ms || (sttMs + embedMs + retrievalMs + guardrailMs + genMs);
-      totalLatencyDisplay.textContent = `TOTAL: ${formatLatency(totalMs)}`;
+      const ragMs = embedMs + retrievalMs + guardrailMs + genMs;
+      const totalMs = data.total_ms || (sttMs + ragMs);
+      if (ragLatencyDisplay) ragLatencyDisplay.textContent = formatLatency(ragMs);
+      if (totalLatencyDisplay) totalLatencyDisplay.textContent = formatLatency(totalMs);
 
       // Calculate Proportional Split Percentages that exactly sum to 100%
       const totalSum = Math.max(0.001, sttMs + embedMs + retrievalMs + guardrailMs + genMs);
