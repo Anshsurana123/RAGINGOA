@@ -110,7 +110,7 @@ UNSAFE_PATTERNS = [
     r"(?i)\b(hack\s+(a\s+)?(bank\s*account|crypto\s*wallet|paypal|user\s*account)|phishing\s*scam|carding\s*tutorial)\b",
     
     # Indic Safety Patterns (Hindi - Weapons, Harm, Theft, Fraud)
-    r"(?i)(बम\s*(बनाने|बनाना|तैयार)|विस्फोटक|हथियार\s*(बना|तैयार)|ज़हर\s*बना|आत्महत्या|फांसी\s*लगा|कत्ल\s*कर|जान\s*से\s*मार|आतंकवादी\s*हमला|देशद्रोह)",
+    r"(?i)(बम\s*(बनाने|बनाना|तैयार)|विस्फोटक|हथियार\s*(बनाना|बनाइए|बनाओ|तैयार\s*करना|तैयार\s*करें)|ज़हर\s*बना|आत्महत्या|फांसी\s*लगा|कत्ल\s*कर|जान\s*से\s*मार|आतंकवादी\s*हमला|देशद्रोह)",
     r"(?i)(चोरी\s*(करना|कैसे\s*करें|की\s*योजना)|डकैती|धोखाधड़ी\s*करना|ठगी\s*करना|बैंक\s*खाता\s*हैक|क्रेडिट\s*कार्ड\s*क्लोनिंग|नकली\s*(नोट|दस्तावेज़)|घोटाला\s*करना|पैसे\s*लूटना)",
     
     # Indic Safety Patterns (Marathi - Verified Distinct Terminology)
