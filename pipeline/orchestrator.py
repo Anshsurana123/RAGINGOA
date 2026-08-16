@@ -307,7 +307,7 @@ class RAGPipelineOrchestrator:
                     retrieved_chunks=cached_chunks,
                     guardrail_flags=guardrails.to_dict(),
                     stage_timings=timings,
-                    retrieval_ms=cache_ms,
+                    retrieval_ms=round(embed_ms + cache_ms, 2),
                     total_ms=total_latency_ms,
                 )
         else:
