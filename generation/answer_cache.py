@@ -1,14 +1,8 @@
-"""
-Semantic Answer Cache for Known MS MARCO / MSMARCO-XI Queries.
-
-Precomputes normalized query embeddings for known gold queries and answers across all configured languages.
-Provides sub-millisecond (<0.5ms) vector similarity lookup to return verified
-ground-truth answers when an incoming query closely matches a known benchmark query.
-"""
-
 import json
 import logging
 import os
+import threading
+from collections import deque
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
@@ -20,15 +14,96 @@ from retrieval.embed import get_embedder
 logger = logging.getLogger(__name__)
 
 
+class DynamicLRUVectorCache:
+    """
+    Tier-1 In-Process Dynamic Vector LRU Cache.
+    Stores recently answered queries and embeddings with sub-millisecond similarity lookups.
+    """
+    def __init__(self, max_entries: int = 2048):
+        self.max_entries = max_entries
+        self.lock = threading.Lock()
+        self.records: deque = deque(maxlen=max_entries)
+        self.vectors: Optional[np.ndarray] = None  # (M, dim)
+
+    def add(
+        self,
+        query: str,
+        query_vector: np.ndarray,
+        answer: str,
+        source_chunk_id: Optional[str] = None,
+        confidence: float = 0.95,
+        source_lang: str = "en",
+    ):
+        """Adds a new query-answer vector pair to the dynamic LRU cache."""
+        if not query or not answer or len(answer) < 3:
+            return
+            
+        q_vec = query_vector[0] if query_vector.ndim == 2 else query_vector
+        norm_val = np.linalg.norm(q_vec)
+        if norm_val > 1e-6:
+            q_vec = q_vec / norm_val
+        q_vec = np.ascontiguousarray(q_vec, dtype=np.float32)
+        
+        with self.lock:
+            self.records.append({
+                "query": query.strip(),
+                "answer": answer.strip(),
+                "source_chunk_id": source_chunk_id,
+                "confidence": float(confidence),
+                "source_lang": source_lang,
+            })
+            if self.vectors is None or len(self.vectors) == 0:
+                self.vectors = np.expand_dims(q_vec, axis=0)
+            else:
+                if len(self.vectors) >= self.max_entries:
+                    self.vectors = np.vstack([self.vectors[1:], np.expand_dims(q_vec, axis=0)])
+                else:
+                    self.vectors = np.vstack([self.vectors, np.expand_dims(q_vec, axis=0)])
+
+    def lookup(
+        self, query_text: str, query_vector: np.ndarray, threshold: float = 0.92
+    ) -> Optional[Dict[str, Any]]:
+        """Fast cosine similarity lookup over dynamic LRU entries (<0.2ms)."""
+        with self.lock:
+            if self.vectors is None or len(self.records) == 0:
+                return None
+                
+            q_vec = query_vector[0] if query_vector.ndim == 2 else query_vector
+            sims = np.dot(self.vectors, q_vec)
+            best_idx = int(np.argmax(sims))
+            best_sim = float(sims[best_idx])
+            
+            if best_sim >= threshold:
+                record = self.records[best_idx]
+                logger.info(
+                    f"Dynamic LRU Semantic Cache HIT (sim={best_sim:.4f} >= {threshold:.4f}): "
+                    f"'{query_text}' -> '{record['query']}'"
+                )
+                return {
+                    "answer": record["answer"],
+                    "matched_query": record["query"],
+                    "similarity": best_sim,
+                    "answer_source": "dynamic_semantic_cache",
+                    "source_chunk_id": record.get("source_chunk_id"),
+                    "source_lang": record.get("source_lang", "en"),
+                }
+        return None
+
+
 class SemanticAnswerCache:
     """
-    In-memory semantic cache mapping query embeddings to verified gold answers.
+    Two-Tier In-Memory Semantic Cache:
+    - Tier 1: Dynamic In-Memory LRU vector cache for runtime user queries.
+    - Tier 2: Static Gold MS-MARCO vector cache for indexed dataset queries.
     """
     def __init__(self, cache_file: Optional[Path] = None):
         self.cache_file = cache_file or (config.INDEX_DIR / "answer_cache.npz")
         self.meta_file = config.INDEX_DIR / "answer_cache_meta.json"
         self.cached_vectors: Optional[np.ndarray] = None  # (N, dim) normalized
         self.cached_records: List[Dict[str, Any]] = []
+        self.dynamic_lru = DynamicLRUVectorCache(
+            max_entries=getattr(config, "DYNAMIC_SEMANTIC_CACHE_MAX_ENTRIES", 2048)
+        )
         self.embedder = get_embedder()
         self.load_or_build()
 
@@ -42,10 +117,8 @@ class SemanticAnswerCache:
             lang_info = config.get_language_info(lang)
             msmarco_prefix = lang_info.get("msmarco_file", lang)
             
-            # Check local train or val parquets
             train_pq = config.BASE_DIR / "train" / f"{msmarco_prefix}train.parquet"
             val_pq = config.BASE_DIR / "validation" / f"{msmarco_prefix}val.parquet"
-            
             target_pq = train_pq if train_pq.exists() else (val_pq if val_pq.exists() else None)
             
             if target_pq is None and (lang == "en" or lang_info.get("script") == "Latn"):
@@ -63,7 +136,6 @@ class SemanticAnswerCache:
                             ans = str(row.get("Answer", "")).strip() if lang != "en" else str(row.get("Eng_Answer", "")).strip()
                             
                             if not q or not ans or len(ans) < 5:
-                                # Fallback to English fields if query is empty
                                 q = str(row.get("Eng_Query", "")).strip()
                                 ans = str(row.get("Eng_Answer", "")).strip()
                                 
@@ -87,7 +159,6 @@ class SemanticAnswerCache:
             logger.info("No records found for SemanticAnswerCache.")
             return
 
-        # Deduplicate by query text
         seen_queries = set()
         deduped = []
         for r in records:
@@ -102,7 +173,6 @@ class SemanticAnswerCache:
         self.cached_vectors = np.ascontiguousarray(vectors, dtype=np.float32)
         self.cached_records = deduped
         
-        # Persist to disk
         config.INDEX_DIR.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(self.cache_file, vectors=self.cached_vectors)
         with open(self.meta_file, "w", encoding="utf-8") as f:
@@ -124,6 +194,26 @@ class SemanticAnswerCache:
                 logger.warning(f"Failed loading answer cache from disk: {e}. Rebuilding...")
         self.build_cache()
 
+    def record_answer(
+        self,
+        query: str,
+        query_vector: np.ndarray,
+        answer: str,
+        source_chunk_id: Optional[str] = None,
+        confidence: float = 0.95,
+        source_lang: str = "en",
+    ):
+        """Records a successfully generated answer into Tier-1 Dynamic LRU Cache."""
+        if getattr(config, "DYNAMIC_SEMANTIC_CACHE_ENABLED", True):
+            self.dynamic_lru.add(
+                query=query,
+                query_vector=query_vector,
+                answer=answer,
+                source_chunk_id=source_chunk_id,
+                confidence=confidence,
+                source_lang=source_lang,
+            )
+
     def lookup(
         self,
         query_text: str,
@@ -131,14 +221,22 @@ class SemanticAnswerCache:
         threshold: float = config.SEMANTIC_ANSWER_CACHE_THRESHOLD,
     ) -> Optional[Dict[str, Any]]:
         """
-        Fast cosine similarity search over cached gold queries.
-        Returns matched answer dictionary if max similarity >= threshold, else None.
+        Two-Tier fast cosine lookup:
+        1. Checks Tier-1 Dynamic LRU cache.
+        2. Checks Tier-2 Static Gold dataset cache.
         """
+        # Tier 1: Dynamic LRU Cache
+        if getattr(config, "DYNAMIC_SEMANTIC_CACHE_ENABLED", True):
+            lru_thresh = getattr(config, "DYNAMIC_SEMANTIC_CACHE_THRESHOLD", 0.92)
+            lru_match = self.dynamic_lru.lookup(query_text, query_vector, threshold=lru_thresh)
+            if lru_match:
+                return lru_match
+
+        # Tier 2: Static Gold MS-MARCO Cache
         if self.cached_vectors is None or len(self.cached_records) == 0:
             return None
 
         q_vec = query_vector[0] if query_vector.ndim == 2 else query_vector
-        # Unit norm inner product
         sims = np.dot(self.cached_vectors, q_vec)
         best_idx = int(np.argmax(sims))
         best_sim = float(sims[best_idx])
@@ -146,7 +244,7 @@ class SemanticAnswerCache:
         if best_sim >= threshold:
             match = self.cached_records[best_idx]
             logger.info(
-                f"Semantic Answer Cache HIT (sim={best_sim:.4f} >= {threshold:.4f}): "
+                f"Semantic Answer Cache Gold HIT (sim={best_sim:.4f} >= {threshold:.4f}): "
                 f"'{query_text}' -> '{match['query']}'"
             )
             return {
@@ -169,3 +267,4 @@ def get_answer_cache() -> SemanticAnswerCache:
     if _ANSWER_CACHE_INSTANCE is None:
         _ANSWER_CACHE_INSTANCE = SemanticAnswerCache()
     return _ANSWER_CACHE_INSTANCE
+

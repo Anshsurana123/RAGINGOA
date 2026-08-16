@@ -14,50 +14,166 @@ logger = logging.getLogger(__name__)
 _CROSS_ENCODER_INSTANCE = None
 
 
-class CrossEncoderRanker:
+class ONNXCrossEncoderRanker:
     """
-    Singleton wrapper for sentence-transformers CrossEncoder.
-    Deep cross-attention scoring on (query, passage) pairs for sub-20ms precision ranking.
+    ONNX Runtime accelerated CrossEncoder for ms-marco-MiniLM-L-6-v2.
+    Computes cross-attention scoring on (query, passage) pairs in sub-15ms on CPU.
+    """
+    def __init__(self, model_name: str = config.CROSS_ENCODER_MODEL_NAME):
+        self.model_name = model_name
+        self.onnx_dir = Path(getattr(config, "ONNX_MODELS_DIR", config.DATA_DIR / "onnx_models"))
+        self.onnx_dir.mkdir(parents=True, exist_ok=True)
+        self.onnx_path = self.onnx_dir / "ce_minilm.onnx"
+        
+        from transformers import AutoTokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        
+        # Ensure ONNX model exists
+        self._ensure_onnx_model()
+        
+        import onnxruntime as ort
+        opts = ort.SessionOptions()
+        num_threads = getattr(config, "ONNX_NUM_THREADS", 4)
+        opts.intra_op_num_threads = num_threads
+        opts.inter_op_num_threads = 1
+        opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        
+        logger.info(f"Loading ONNX CrossEncoder from: {self.onnx_path} (threads={num_threads})")
+        self.session = ort.InferenceSession(str(self.onnx_path), opts, providers=["CPUExecutionProvider"])
+        
+        # Warmup ONNX inference graph to avoid cold-start JIT latency
+        try:
+            dummy_in = self.tokenizer(["warmup query"], ["warmup passage"], padding=True, return_tensors="np")
+            self.session.run(None, {
+                "input_ids": dummy_in["input_ids"].astype(np.int64),
+                "attention_mask": dummy_in["attention_mask"].astype(np.int64),
+                "token_type_ids": dummy_in["token_type_ids"].astype(np.int64),
+            })
+        except Exception:
+            pass
+        logger.info("ONNX CrossEncoder session initialized and warmed up successfully.")
+
+    def _ensure_onnx_model(self):
+        """Auto-export CrossEncoder to ONNX if not already present."""
+        if self.onnx_path.exists():
+            return
+            
+        logger.info("Exporting CrossEncoder to ONNX format...")
+        import torch.nn as nn
+        from transformers import AutoModelForSequenceClassification
+        from torch.export import Dim
+        
+        class CEWrapper(nn.Module):
+            def __init__(self, m):
+                super().__init__()
+                self.m = m
+            def forward(self, input_ids, attention_mask, token_type_ids):
+                return self.m(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, return_dict=False)[0]
+
+        base_model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
+        base_model.eval()
+        wrapper = CEWrapper(base_model)
+        wrapper.eval()
+        
+        b = Dim("batch")
+        s = Dim("seq")
+        dummy = self.tokenizer(["query 1", "query 2"], ["passage 1", "passage 2"], padding=True, return_tensors="pt")
+        
+        try:
+            torch.onnx.export(
+                wrapper,
+                (dummy["input_ids"], dummy["attention_mask"], dummy["token_type_ids"]),
+                str(self.onnx_path),
+                input_names=["input_ids", "attention_mask", "token_type_ids"],
+                output_names=["logits"],
+                dynamic_shapes={
+                    "input_ids": {0: b, 1: s},
+                    "attention_mask": {0: b, 1: s},
+                    "token_type_ids": {0: b, 1: s},
+                },
+                opset_version=18,
+                do_constant_folding=True,
+            )
+            logger.info("Exported ONNX CrossEncoder model.")
+        except Exception as e:
+            logger.warning(f"ONNX CrossEncoder export failed: {e}. PyTorch fallback will be used.")
+
+    def score_pairs(self, query: str, passages: List[str], max_length: int = 96) -> np.ndarray:
+        """
+        Scores (query, passage) pairs using ONNX Runtime with Context Bounding.
+        """
+        if not passages:
+            return np.array([], dtype=np.float32)
+            
+        bound_len = min(max_length, getattr(config, "CONTEXT_BOUNDING_MAX_TOKENS", 128))
+        pairs = [[query, p] for p in passages]
+        
+        inputs = self.tokenizer(
+            pairs,
+            padding=True,
+            truncation=True,
+            max_length=bound_len,
+            return_tensors="np",
+        )
+        ort_inputs = {
+            "input_ids": inputs["input_ids"].astype(np.int64),
+            "attention_mask": inputs["attention_mask"].astype(np.int64),
+            "token_type_ids": inputs["token_type_ids"].astype(np.int64),
+        }
+        logits = self.session.run(None, ort_inputs)[0]
+        return np.asarray(logits.flatten(), dtype=np.float32)
+
+
+class PyTorchCrossEncoderRanker:
+    """
+    PyTorch fallback wrapper for sentence-transformers CrossEncoder.
     """
     def __init__(self, model_name: str = config.CROSS_ENCODER_MODEL_NAME):
         load_path = model_name
         local_cache = getattr(config, "CROSS_ENCODER_LOCAL_CACHE", None)
         if local_cache and Path(local_cache).exists():
             load_path = str(local_cache)
-            logger.info(f"Loading CrossEncoder from local cache: {load_path}")
+            logger.info(f"Loading PyTorch CrossEncoder from local cache: {load_path}")
         else:
-            logger.info(f"Loading CrossEncoder from model name: {load_path}")
+            logger.info(f"Loading PyTorch CrossEncoder from model name: {load_path}")
             
         try:
             self.model = CrossEncoder(load_path)
-            logger.info("CrossEncoder loaded successfully.")
+            logger.info("PyTorch CrossEncoder loaded successfully.")
         except Exception as e:
             logger.warning(f"Failed to load CrossEncoder from '{load_path}': {e}. Falling back to default '{model_name}'.")
             self.model = CrossEncoder(model_name)
 
     def score_pairs(self, query: str, passages: List[str], max_length: int = 96) -> np.ndarray:
-        """
-        Scores (query, passage) pairs. Returns 1D array of logits.
-        Optimized for ultra-fast CPU inference (<25ms for top-3).
-        """
         if not passages:
             return np.array([], dtype=np.float32)
-        # Truncate passage text to speed up tokenization and transformer attention
+        bound_len = min(max_length, getattr(config, "CONTEXT_BOUNDING_MAX_TOKENS", 128))
         pairs = [[query, p[:220]] for p in passages]
         with torch.inference_mode():
             scores = self.model.predict(
                 pairs,
                 show_progress_bar=False,
                 batch_size=len(pairs),
-                max_length=max_length,
+                max_length=bound_len,
             )
         return np.asarray(scores, dtype=np.float32)
 
 
-def get_cross_encoder() -> CrossEncoderRanker:
+def get_cross_encoder():
+    """
+    Get or initialize the global singleton cross-encoder instance with ONNX-first policy.
+    """
     global _CROSS_ENCODER_INSTANCE
     if _CROSS_ENCODER_INSTANCE is None:
-        _CROSS_ENCODER_INSTANCE = CrossEncoderRanker()
+        if getattr(config, "ENABLE_ONNX_CROSS_ENCODER", True):
+            try:
+                _CROSS_ENCODER_INSTANCE = ONNXCrossEncoderRanker()
+            except Exception as e:
+                logger.warning(f"Failed to initialize ONNX CrossEncoder: {e}. Falling back to PyTorch.")
+                _CROSS_ENCODER_INSTANCE = PyTorchCrossEncoderRanker()
+        else:
+            _CROSS_ENCODER_INSTANCE = PyTorchCrossEncoderRanker()
     return _CROSS_ENCODER_INSTANCE
 
 

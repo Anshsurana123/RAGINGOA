@@ -81,6 +81,16 @@ EMBEDDING_DIM = 384
 QUERY_PREFIX = "query: "
 PASSAGE_PREFIX = "passage: "
 
+# ONNX Runtime CPU Acceleration Settings
+ENABLE_ONNX_EMBEDDING = os.getenv("ENABLE_ONNX_EMBEDDING", "true").lower() == "true"
+ENABLE_ONNX_CROSS_ENCODER = os.getenv("ENABLE_ONNX_CROSS_ENCODER", "true").lower() == "true"
+ONNX_MODELS_DIR = DATA_DIR / "onnx_models"
+ONNX_NUM_THREADS = int(os.getenv("ONNX_NUM_THREADS", "4"))
+ONNX_MODELS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Context Bounding & Passage Token Truncation
+CONTEXT_BOUNDING_MAX_TOKENS = int(os.getenv("CONTEXT_BOUNDING_MAX_TOKENS", "128"))
+
 # FAISS HNSW Index Hyperparameters
 HNSW_M = 32
 HNSW_EF_CONSTRUCTION = 200
@@ -148,6 +158,11 @@ ALLOW_NETWORK_CALLS_IN_PIPELINE = False
 # Semantic Answer Cache (Fast lookup for gold answers of known queries in MSMARCO)
 SEMANTIC_ANSWER_CACHE_ENABLED = True
 SEMANTIC_ANSWER_CACHE_THRESHOLD = 0.93
+
+# Dynamic In-Memory Vector LRU Semantic Cache (Tier-1 Hot Cache for all queries)
+DYNAMIC_SEMANTIC_CACHE_ENABLED = os.getenv("DYNAMIC_SEMANTIC_CACHE_ENABLED", "true").lower() == "true"
+DYNAMIC_SEMANTIC_CACHE_MAX_ENTRIES = int(os.getenv("DYNAMIC_SEMANTIC_CACHE_MAX_ENTRIES", "2048"))
+DYNAMIC_SEMANTIC_CACHE_THRESHOLD = float(os.getenv("DYNAMIC_SEMANTIC_CACHE_THRESHOLD", "0.92"))
 
 # Tier-1 Primary: Groq / OpenAI-compatible (High-fidelity 70B instruction model, ~330ms)
 LLM_API_KEY = os.getenv("LLM_API_KEY", os.getenv("GROQ_API_KEY", ""))

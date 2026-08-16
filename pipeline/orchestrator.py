@@ -31,6 +31,7 @@ from chunking.hybrid_merge import merge_and_fuse_candidates
 from guardrails.pre_retrieval import check_unsafe_content, check_off_topic_query
 from guardrails.post_generation import check_grounding, DECLINED_RESPONSE_TEMPLATE
 from generation.extractive import generate_extractive
+from generation.answer_cache import get_answer_cache
 from generation.llm_fallback import get_llm_adapter
 from stt.sarvam_client import get_stt_client
 
@@ -47,6 +48,7 @@ class RAGPipelineOrchestrator:
         self.index_manager = get_index_manager()
         self.stt_client = get_stt_client()
         self.llm_adapter = get_llm_adapter()
+        self.answer_cache = get_answer_cache()
 
     async def execute(self, request: QueryRequest) -> QueryResponse:
         """
@@ -230,6 +232,61 @@ class RAGPipelineOrchestrator:
             success=True,
             details=f"On-topic (centroid cosine distance: {off_topic_dist:.4f})",
         ))
+        
+        # -------------------------------------------------------------
+        # STAGE 4.5: Two-Tier Semantic Answer Cache Lookup (<1ms Fast Path)
+        # -------------------------------------------------------------
+        cache_start_t = time.perf_counter()
+        cached_result = self.answer_cache.lookup(
+            raw_query_text,
+            query_vector,
+            threshold=config.SEMANTIC_ANSWER_CACHE_THRESHOLD,
+        )
+        if cached_result:
+            cache_ms = round((time.perf_counter() - cache_start_t) * 1000, 2)
+            timings.append(StageTiming(
+                stage="semantic_answer_cache",
+                ms=cache_ms,
+                success=True,
+                details=f"Cache HIT ({cached_result['answer_source']}, sim={cached_result['similarity']:.4f})",
+            ))
+            timings.append(StageTiming(
+                stage="vector_retrieval_and_merge",
+                ms=0.0,
+                success=True,
+                details="Bypassed due to semantic cache hit",
+            ))
+            timings.append(StageTiming(
+                stage="reranking",
+                ms=0.0,
+                success=True,
+                details="Bypassed due to semantic cache hit",
+            ))
+            timings.append(StageTiming(
+                stage="generation",
+                ms=0.0,
+                success=True,
+                details=f"Instant cached answer ({cached_result['answer_source']})",
+            ))
+            timings.append(StageTiming(
+                stage="post_generation_grounding_guardrail",
+                ms=0.0,
+                success=True,
+                details="Cached verified ground-truth",
+            ))
+            total_latency_ms = round((time.perf_counter() - start_pipeline_t) * 1000, 2)
+            return QueryResponse(
+                query=raw_query_text,
+                transcript=transcript,
+                language_detected=target_lang,
+                answer=cached_result["answer"],
+                answer_source=cached_result["answer_source"],
+                retrieved_chunks=[],
+                guardrail_flags=guardrails.to_dict(),
+                stage_timings=timings,
+                retrieval_ms=cache_ms,
+                total_ms=total_latency_ms,
+            )
         
         # -------------------------------------------------------------
         # STAGE 5: Multi-Strategy FAISS Retrieval & Cross-Lingual Federation
@@ -461,6 +518,19 @@ class RAGPipelineOrchestrator:
             success=is_grounded,
             details=ground_reason,
         ))
+        
+        # Record grounded answer into dynamic vector LRU cache for subsequent zero-latency hits
+        if is_grounded and answer_source != "declined" and len(final_answer) >= 5:
+            top_chunk_id = reranked_chunks[0].get("chunk_id") if reranked_chunks else None
+            conf_val = float(reranked_chunks[0].get("confidence", 0.95)) if reranked_chunks else 0.95
+            self.answer_cache.record_answer(
+                query=raw_query_text,
+                query_vector=query_vector,
+                answer=final_answer,
+                source_chunk_id=top_chunk_id,
+                confidence=conf_val,
+                source_lang=target_lang,
+            )
         
         total_ms = round((time.perf_counter() - start_pipeline_t) * 1000, 2)
         

@@ -70,7 +70,7 @@ def synthesize_textrank_svd(
     candidate_sentences: List[str] = []
     seen_sentences = set()
     
-    for chunk in candidate_chunks[:3]:
+    for chunk in candidate_chunks[:2]:
         text = chunk.get("text", "").strip()
         if not text:
             continue
@@ -80,6 +80,10 @@ def synthesize_textrank_svd(
             if len(s_clean.split()) >= 3 and s_clean not in seen_sentences:
                 seen_sentences.add(s_clean)
                 candidate_sentences.append(s_clean)
+                if len(candidate_sentences) >= 4:
+                    break
+        if len(candidate_sentences) >= 4:
+            break
                 
     if not candidate_sentences:
         return candidate_chunks[0].get("text", "").strip()

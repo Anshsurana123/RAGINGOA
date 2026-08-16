@@ -28,6 +28,9 @@ train/
 validation/
 .cache/
 data/raw/
+data/onnx_models/
+*.onnx
+*.onnx.data
 *.parquet
 *.jsonl
 *.tar.gz

@@ -57,7 +57,7 @@ class QueryResponse(BaseModel):
     transcript: str
     language_detected: str
     answer: str
-    answer_source: Literal["extractive", "generated", "declined", "cross_lingual_synthesis"]
+    answer_source: Literal["extractive", "generated", "declined", "cross_lingual_synthesis", "gold_answer_cache", "dynamic_semantic_cache", "local_slm_generated"]
     retrieved_chunks: List[RetrievedChunk] = Field(default_factory=list)
     guardrail_flags: Dict[str, Any] = Field(default_factory=dict)
     stage_timings: List[StageTiming] = Field(default_factory=list)
