@@ -146,24 +146,54 @@ The pipeline dynamically supports all 14 major Indic languages + English with fu
 | **Context Synthesis** | TextRank Eigenvector Centrality + SVD Decomposition | Deterministic mathematical synthesis extracting top salient sentences from candidate passages in $<10\text{ms}$ on CPU with zero hallucinations. |
 | **Pre-Retrieval Guardrails** | Fast Regex + Centroid Distance + Neural Safety | Cheapest checks first: fast keyword/regex pass blocks prompt injections and unsafe terms; cosine distance to corpus centroids blocks off-topic queries before retrieval. |
 | **Post-Gen Guardrail** | Lexical & Semantic Grounding Overlap | Strict token containment scoring. Rejects ungrounded hallucinations with standard template. |
-| **Generation Strategy** | Non-LLM TextRank/SVD Fast-Path + LLM Fallback | Sub-millisecond deterministic passage extraction on CPU, with optional multi-source synthesis via Groq/OpenAI. |
 | **Orchestration** | Async State Machine + FastAPI | Hand-rolled Python async orchestrator using Pydantic v2 schemas without framework bloat. |
-
----
 
 ---
 
 ## ⚡ Non-LLM Low-Latency Optimizations & SLA Benchmarks
 
-The system incorporates **7 CPU-optimized Low-Latency Non-LLM RAG Adaptations** designed to run without GPUs on standard free CPU tiers:
-
-1. **ONNX Runtime & Dynamic Shapes**: `multilingual-e5-small` and `ms-marco-MiniLM-L-6-v2` run via ONNX Runtime FP32 with 4-thread pinning (embedding encoding dropped from **34.2 ms ➔ 13.6 ms**; cross-encoder reranking from **81.9 ms ➔ 26.7 ms**).
-2. **Two-Tier Dynamic In-Memory LRU Vector Cache**: Tier-1 dynamic vector cache (2048 entries, thread-safe, cosine similarity $\ge 0.92$) and Tier-2 static MS-MARCO gold cache (4462 queries). Resolves cache hits in **$0.2\text{ ms} - 0.7\text{ ms}$**!
-3. **Context Bounding & Token Truncation**: Enforces a strict 128-token boundary across tokenizers before cross-attention scoring, eliminating quadratic sequence length penalties.
+1. **ONNX Runtime & Dynamic Shapes**: `multilingual-e5-small`, `ms-marco-MiniLM-L-6-v2`, and `meta-llama/Prompt-Guard-86M` run via ONNX Runtime FP32 with 4-thread pinning (embedding encoding: **13.6 ms**; cross-encoder reranking: **26.7 ms**; prompt guard: **1.5 ms**).
+2. **Two-Tier Dynamic In-Memory LRU Vector Cache**: Tier-1 dynamic vector cache (2048 entries, thread-safe, cosine similarity $\ge 0.92$) and Tier-2 static MS-MARCO gold cache (4462 queries). Resolves hot cache hits in **$0.2\text{ ms} - 0.7\text{ ms}$**!
+3. **Context Bounding & Token Truncation**: Enforces a strict 80–128 token boundary across tokenizers before cross-attention scoring, eliminating quadratic sequence length penalties.
 4. **Accelerated TextRank + SVD Energy Context Synthesis**: Deterministic algebraic graph summarizer using ONNX batch vectorization, query prior power iteration, and Singular Value Decomposition (SVD) energy decomposition, producing fluent answers in **$<10\text{ ms}$** with zero LLM API latency.
 5. **FAISS Candidate Slicing**: Slices graph exploration to `search_k = max(120, top_k * 8)` for language pre-filtering, guaranteeing traversal strictly **$<0.9\text{ ms}$**.
 6. **Dynamic Script-Aware BM25 Bypassing**: Automatically bypasses BM25 lexical penalties on cross-script searches while preserving lexical boost on native script searches.
 7. **End-to-End Early-Exit Fast-Path**: Pipeline immediately returns validated answers upon semantic cache hit, bypassing downstream retrieval and synthesis stages.
+8. **Eager Startup Pipeline Pre-Warmup (`warmup_pipeline()`)**: Pre-compiles all ONNX graphs, warms FAISS memory pages, and initialises tokenizers on boot so that the very first query (cold path) is served under the 200 ms SLA.
+9. **Batched Context Safety Scanning (`predict_batch`) & Fast Heuristic Pre-Filter**: Scans 5 candidate passages simultaneously in **1.54 ms** instead of sequential loops (dropping latency from **1,450 ms ➔ 1.54 ms**).
+
+---
+
+### ❄️ Cold-Start Multilingual SLA Benchmark (15 Languages, Cache-Bypassed)
+
+Evaluates true cold-path retrieval, reranking, context safety scanning, and grounded generation across all 15 languages with **`bypass_cache=True`** to ensure strict SLA compliance on brand-new, unseen questions.
+
+**Hardware Test Environment**: `8 vCPUs | 15.78 GB RAM | Windows 11 (AMD64) | 100% CPU Execution`  
+**SLA Target**: **`< 200 ms`** on cold uncached requests  
+**SLA Pass Rate**: **`15/15 (100.0%)`** ✅  
+**Context Guard Max Latency**: **`2.21 ms`** (down from `1,450 ms`) ⚡  
+
+| Language | Code | Query Type | Context Guard | Cross-Encoder Rerank | Generation | Total Cold Latency | SLA Status |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **English** | `en` | Known QA | 0.99 ms | 53.40 ms | 0.92 ms | **120.48 ms** | ✅ **PASS** |
+| **Hindi** | `hi` | Known QA | 1.57 ms | 88.12 ms | 0.25 ms | **175.05 ms** | ✅ **PASS** |
+| **Tamil** | `ta` | Known QA | 1.35 ms | 79.50 ms | 0.19 ms | **173.49 ms** | ✅ **PASS** |
+| **Telugu** | `te` | Known QA | 1.21 ms | 90.72 ms | 0.18 ms | **164.77 ms** | ✅ **PASS** |
+| **Bengali** | `bn` | Known QA | 1.96 ms | 93.57 ms | 0.17 ms | **162.78 ms** | ✅ **PASS** |
+| **Urdu** | `ur` | Known QA | 1.58 ms | 103.12 ms | 0.21 ms | **169.99 ms** | ✅ **PASS** |
+| **Marathi** | `mr` | Known QA | 1.59 ms | 103.31 ms | 0.23 ms | **177.35 ms** | ✅ **PASS** |
+| **Gujarati** | `gu` | Known QA | 1.82 ms | 89.76 ms | 0.25 ms | **161.61 ms** | ✅ **PASS** |
+| **Kannada** | `kn` | Known QA | 1.82 ms | 76.86 ms | 0.27 ms | **167.62 ms** | ✅ **PASS** |
+| **Malayalam** | `ml` | Known QA | 1.82 ms | 83.41 ms | 0.16 ms | **170.34 ms** | ✅ **PASS** |
+| **Punjabi** | `pa` | Known QA | 2.21 ms | 100.67 ms | 0.19 ms | **181.81 ms** | ✅ **PASS** |
+| **Assamese** | `as` | Known QA | 1.83 ms | 110.64 ms | 0.23 ms | **194.22 ms** | ✅ **PASS** |
+| **Odia** | `or` | Known QA | 1.99 ms | 86.99 ms | 0.23 ms | **178.73 ms** | ✅ **PASS** |
+| **Nepali** | `ne` | Known QA | 1.31 ms | 109.84 ms | 0.23 ms | **184.45 ms** | ✅ **PASS** |
+| **Sanskrit** | `sa` | Known QA | 0.00 ms | 66.14 ms | 0.00 ms | **145.40 ms** | ✅ **PASS** |
+| **Out-of-Domain Control** | `en` | Mars Query | 0.00 ms | 97.39 ms | 0.00 ms | **168.86 ms** | ✅ **PASS (Declined)** |
+| **Safety Control** | `en` | Prompt Injection | 0.00 ms | 0.00 ms | 0.00 ms | **0.24 ms** | ✅ **PASS (Blocked)** |
+
+*Detailed benchmark JSON: [`benchmark/results/cold_start_benchmark_results.json`](benchmark/results/cold_start_benchmark_results.json).*
 
 ---
 
@@ -246,17 +276,18 @@ Open **[http://localhost:7860](http://localhost:7860)** in your browser.
 
 ## 🧪 Test Suite & Verification
 
-The repository includes a comprehensive test suite covering all modules, chunking strategies, guardrails, cross-lingual federation, and queries across all Indic languages.
+The repository includes a comprehensive test suite covering all modules, chunking strategies, guardrails, cross-lingual federation, prompt guard, and queries across all Indic languages.
 
 ```bash
-pytest tests/test_pipeline.py -v
+pytest tests/ -v
 ```
 
-### Test Coverage (39/39 Tests Passing):
+### Test Coverage (45/45 Tests Passing):
 - `TestLanguageExtensibility`: Config single source of truth, registry integrity, dynamic routing across all 11 Indic scripts.
 - `TestChunkingModule`: Passage-native, sentence-window with 15% overlap, semantic topic splitting, multilingual sentence tokenization.
 - `TestRetrievalAndReranking`: Multilingual BM25 tokenization, hybrid score fusion, Reciprocal Rank Fusion (RRF).
 - `TestGuardrails`: Fast-path keyword blocking across all Indic scripts, safe query pass-through, centroid off-topic detection, grounding overlap scoring.
+- `TestPromptGuard`: Direct Prompt Injection (DPI) blocking, Indirect Prompt Injection (IPI) context chunk filtering, batched tensor execution, sub-20ms latency benchmark.
 - `TestGeneration`: Extractive sentence selection, provider-agnostic LLM adapter.
 - `TestEndToEndPipeline`: Text bypass queries, unsafe query orchestration, prompt extraction blocking, cross-lingual federation, and robust JSON parser error recovery.
 - `TestAllIndicLanguagesEndToEnd`: Factoid queries evaluated with 100% pass rate in **Hindi, Tamil, English, Bengali, Assamese, Gujarati, Kannada, Malayalam, Marathi, Nepali, Odia, Punjabi, Telugu, Urdu, and Sanskrit**.
@@ -269,7 +300,9 @@ pytest tests/test_pipeline.py -v
 ├── api/
 │   └── main.py                  # FastAPI server with /query, /health, /languages endpoints
 ├── benchmark/
-│   ├── results/                 # Latency JSON, CSV, and Markdown performance reports
+│   ├── results/                 # Cold-start and Speed-50 latency JSON/MD reports
+│   ├── run_cold_start_bench.py  # 15-language cold-start SLA validation runner
+│   ├── run_speed_bench_50.py    # 750-query throughput benchmark runner
 │   └── run_latency_bench.py     # 88-query multi-language latency benchmark runner
 ├── chunking/
 │   ├── hybrid_merge.py          # Reciprocal Rank Fusion (RRF) candidate merger
@@ -288,21 +321,24 @@ pytest tests/test_pipeline.py -v
 │   └── llm_fallback.py          # Provider-agnostic LLM adapter with retries & backoff
 ├── guardrails/
 │   ├── post_generation.py       # Grounding overlap verifier & hallucination detector
-│   └── pre_retrieval.py         # Multilingual fast-path regex + Neural safety classifier
+│   ├── pre_retrieval.py         # Multilingual fast-path regex + Neural safety classifier
+│   └── prompt_guard.py          # Meta Prompt-Guard 86M batched ONNX IPI/DPI shield
 ├── pipeline/
-│   ├── orchestrator.py          # 8-Stage async pipeline state machine
-│   └── schemas.py               # Pydantic v2 schemas (QueryRequest, QueryResponse, etc.)
+│   ├── orchestrator.py          # 8-Stage async pipeline state machine with warmup_pipeline()
+│   └── schemas.py               # Pydantic v2 schemas with bypass_cache support
 ├── retrieval/
-│   ├── embed.py                 # intfloat/multilingual-e5-small embedding manager
+│   ├── embed.py                 # intfloat/multilingual-e5-small ONNX embedding manager
 │   ├── index_faiss.py           # In-memory FAISS HNSW vector index & centroid manager
-│   └── rerank.py                # Adaptive script-aware BM25 + Cross-Encoder re-ranking
+│   └── rerank.py                # Adaptive script-aware BM25 + ONNX Cross-Encoder re-ranking
 ├── stt/
 │   └── sarvam_client.py         # Sarvam Saaras v3 STT with ffmpeg 16kHz mono normalizer
 ├── tests/
-│   └── test_pipeline.py         # 39-test comprehensive pytest suite
+│   ├── test_pipeline.py         # 39-test end-to-end pipeline test suite
+│   └── test_prompt_guard.py     # 6-test Prompt-Guard IPI/DPI safety unit test suite
 ├── training/
 │   └── prepare_rag_sft_data.py  # Supervised fine-tuning RAG dataset generator
 ├── Dockerfile                   # Hugging Face Spaces Docker container specification
+├── rag_eval_report.md           # External VIGOURLS evaluation report & latency diagnosis
 ├── config.py                    # Single source of truth configuration
 ├── requirements.txt             # Python dependencies
 └── README.md                    # Project documentation
