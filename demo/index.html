@@ -263,12 +263,37 @@
 
           <!-- Query Input Bar -->
           <div class="w-full flex gap-2">
-            <input type="text" id="queryInput" placeholder="Ask in Hindi, Tamil, or English..."
+            <input type="text" id="queryInput" placeholder="Ask in Hindi, Tamil, Telugu, Bengali, Urdu, Marathi, Gujarati, Kannada, Malayalam, Odia, Punjabi, Assamese, Nepali, Sanskrit, or English..."
               class="w-full bg-sand-50 border-2 border-black px-3.5 py-2.5 font-sans text-sm text-black placeholder:text-slate-400 focus:outline-none focus:bg-white shadow-brutal-sm"/>
             <button id="searchBtn" class="px-4 py-2.5 bg-black hover:bg-slate-800 active:scale-95 text-hhgold font-mono font-bold text-xs border-2 border-black shadow-brutal-sm flex items-center gap-1 transition">
               <span>RUN</span>
               <span class="material-symbols-outlined text-sm font-bold">arrow_forward</span>
             </button>
+          </div>
+
+          <!-- Quick Multilingual Prompt Chips -->
+          <div class="w-full flex flex-col gap-1 text-[11px] font-mono">
+            <div class="text-slate-600 font-bold flex items-center gap-1">
+              <span class="material-symbols-outlined text-xs text-hhdarkgreen">tips_and_updates</span>
+              <span>QUICK PROMPTS (14 INDIC + EN):</span>
+            </div>
+            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="hi" data-text="हृदय के चार कक्ष कौन से हैं?">🇮🇳 HI: हृदय के कक्ष</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="ta" data-text="மனித இதயத்தின் நான்கு அறைகள் யாவை?">🇮🇳 TA: இதயத்தின் அறைகள்</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="te" data-text="మానవ గుండెలోని నాలుగు గదులు ఏవి?">🇮🇳 TE: గుండె గదులు</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="bn" data-text="মানব হৃদপিণ্ডের চারটি প্রকোষ্ঠ কী কী?">🇮🇳 BN: হৃদপিণ্ডের প্রকোষ্ঠ</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="ur" data-text="انسانی دل کے چار خانے کون سے ہیں؟">🇮🇳 UR: دل کے خانے</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="mr" data-text="मानवी हृदयाचे चार कप्पे कोणते आहेत?">🇮🇳 MR: हृदयाचे कप्पे</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="gu" data-text="માનવ હૃદયના ચાર ખંડો કયા છે?">🇮🇳 GU: હૃદયના ખંડો</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="kn" data-text="ಮಾನವ ಹೃದಯದ ನಾಲ್ಕು ಕೋಣೆಗಳು ಯಾವುವು?">🇮🇳 KN: ಹೃದಯದ ಕೋಣೆಗಳು</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="ml" data-text="മനുഷ്യ ഹൃദയത്തിന്റെ നാല് അറകൾ ഏതെല്ലാമാണ്?">🇮🇳 ML: ഹൃദയ അറകൾ</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="pa" data-text="ਮਨੁੱਖੀ ਦਿਲ ਦੇ ਚਾਰ ਖਾਨੇ ਕਿਹੜੇ ਹਨ?">🇮🇳 PA: ਦਿਲ ਦੇ ਖਾਨੇ</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="as" data-text="মানৱ হৃদযন্ত্ৰৰ চাৰিটা কোঠালী কি কি?">🇮🇳 AS: হৃদযন্ত্ৰৰ কোঠালী</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="or" data-text="ମାନବ ହୃଦୟର ଚାରୋଟି କୋଠରୀ କ’ଣ?">🇮🇳 OR: ହୃଦୟର କୋଠରୀ</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="ne" data-text="मानव मुटुका चार कोठाहरू के के हुन्?">🇳🇵 NE: मुटुका कोठाहरू</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="sa" data-text="मानवहृदयस्य चत्वारः कोष्ठाः के सन्ति?">🇮🇳 SA: हृदयस्य कोष्ठाः</button>
+              <button class="quick-chip px-2 py-0.5 bg-sand-100 hover:bg-hhgold hover:text-black border border-black rounded text-[10px] whitespace-nowrap font-sans font-semibold transition" data-lang="en" data-text="What are the four chambers of the human heart?">🇬🇧 EN: Heart Chambers</button>
+            </div>
           </div>
         </div>
 
@@ -546,6 +571,30 @@
       });
     });
 
+    // Quick Prompt Chips Click Handler
+    document.querySelectorAll(".quick-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        const text = chip.getAttribute("data-text");
+        const lang = chip.getAttribute("data-lang");
+        if (text) {
+          queryInput.value = text;
+          if (lang) {
+            currentLanguage = lang;
+            document.querySelectorAll(".lang-btn").forEach(b => {
+              if (b.getAttribute("data-lang") === lang) {
+                b.classList.add("bg-black", "text-hhgold");
+                b.classList.remove("text-slate-700");
+              } else {
+                b.classList.remove("bg-black", "text-hhgold");
+                b.classList.add("text-slate-700");
+              }
+            });
+          }
+          executeSearch();
+        }
+      });
+    });
+
     // Enter Key Search
     queryInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") executeSearch();
@@ -715,11 +764,25 @@
           const item = document.createElement("div");
           item.className = "p-3.5 bg-sand-100 border-2 border-black shadow-brutal relative overflow-hidden flex flex-col gap-1.5";
           
-          let langPillBg = "bg-slate-800 text-slate-200";
+          const langMap = {
+            en: "bg-sky-900 text-sky-200",
+            hi: "bg-amber-900 text-amber-200",
+            ta: "bg-emerald-900 text-emerald-200",
+            te: "bg-blue-900 text-blue-200",
+            bn: "bg-indigo-900 text-indigo-200",
+            ur: "bg-fuchsia-900 text-fuchsia-200",
+            mr: "bg-red-900 text-red-200",
+            gu: "bg-orange-900 text-orange-200",
+            kn: "bg-purple-900 text-purple-200",
+            ml: "bg-teal-900 text-teal-200",
+            pa: "bg-lime-900 text-lime-200",
+            as: "bg-emerald-800 text-emerald-200",
+            or: "bg-cyan-900 text-cyan-200",
+            ne: "bg-yellow-900 text-yellow-200",
+            sa: "bg-rose-900 text-rose-200"
+          };
           const lang = (c.source_lang || "").toLowerCase();
-          if (lang === "en") langPillBg = "bg-sky-900 text-sky-200";
-          else if (lang === "hi") langPillBg = "bg-amber-900 text-amber-200";
-          else if (lang === "ta") langPillBg = "bg-emerald-900 text-emerald-200";
+          let langPillBg = langMap[lang] || "bg-slate-800 text-slate-200";
 
           item.innerHTML = `
             <div class="flex items-center justify-between mb-1">
