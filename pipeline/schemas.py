@@ -48,7 +48,7 @@ class QueryRequest(BaseModel):
     audio_path: Optional[str] = None
     text: Optional[str] = None  # Text bypass for benchmark / testing
     language_hint: Optional[str] = None
-    cross_lingual: bool = True  # Enable multilingual federation across all indexed corpora
+    cross_lingual: bool = False  # Multilingual federation across all indexed corpora (default: False)
 
 
 class QueryResponse(BaseModel):

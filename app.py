@@ -188,7 +188,7 @@ async def query_pipeline(
     """
     orchestrator = get_orchestrator()
     temp_audio_path = None
-    is_cross_lingual = _parse_bool(cross_lingual, default=True)
+    is_cross_lingual = _parse_bool(cross_lingual, default=False)
     
     try:
         if request_body and (request_body.text or request_body.audio_path):

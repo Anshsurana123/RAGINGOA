@@ -234,12 +234,14 @@ class RAGPipelineOrchestrator:
         ))
         
         # -------------------------------------------------------------
-        # STAGE 4.5: Two-Tier Semantic Answer Cache Lookup (<1ms Fast Path)
+        # STAGE 4.5: Concept-to-Language Matrix Cache Lookup (<1ms Fast Path)
         # -------------------------------------------------------------
         cache_start_t = time.perf_counter()
         cached_result = self.answer_cache.lookup(
-            raw_query_text,
-            query_vector,
+            query_text=raw_query_text,
+            query_vector=query_vector,
+            target_lang=target_lang,
+            cross_lingual=request.cross_lingual,
             threshold=config.SEMANTIC_ANSWER_CACHE_THRESHOLD,
         )
         if cached_result:
@@ -248,7 +250,7 @@ class RAGPipelineOrchestrator:
                 stage="semantic_answer_cache",
                 ms=cache_ms,
                 success=True,
-                details=f"Cache HIT ({cached_result['answer_source']}, sim={cached_result['similarity']:.4f})",
+                details=f"Cache HIT ({cached_result['answer_source']}, lang={cached_result['target_lang']}, sim={cached_result['similarity']:.4f})",
             ))
             timings.append(StageTiming(
                 stage="vector_retrieval_and_merge",
@@ -275,13 +277,24 @@ class RAGPipelineOrchestrator:
                 details="Cached verified ground-truth",
             ))
             total_latency_ms = round((time.perf_counter() - start_pipeline_t) * 1000, 2)
+            cached_chunks = [
+                RetrievedChunk(
+                    chunk_id=c.get("chunk_id", ""),
+                    text=c.get("text", ""),
+                    source_lang=c.get("source_lang", ""),
+                    chunk_strategy=c.get("chunk_strategy", "cached"),
+                    dense_score=round(float(c.get("dense_score", 1.0)), 4),
+                    final_score=round(float(c.get("final_score", 1.0)), 4),
+                )
+                for c in cached_result.get("retrieved_chunks", [])
+            ]
             return QueryResponse(
                 query=raw_query_text,
                 transcript=transcript,
                 language_detected=target_lang,
                 answer=cached_result["answer"],
                 answer_source=cached_result["answer_source"],
-                retrieved_chunks=[],
+                retrieved_chunks=cached_chunks,
                 guardrail_flags=guardrails.to_dict(),
                 stage_timings=timings,
                 retrieval_ms=cache_ms,
@@ -521,15 +534,15 @@ class RAGPipelineOrchestrator:
         
         # Record grounded answer into dynamic vector LRU cache for subsequent zero-latency hits
         if is_grounded and answer_source != "declined" and len(final_answer) >= 5:
-            top_chunk_id = reranked_chunks[0].get("chunk_id") if reranked_chunks else None
             conf_val = float(reranked_chunks[0].get("confidence", 0.95)) if reranked_chunks else 0.95
             self.answer_cache.record_answer(
                 query=raw_query_text,
                 query_vector=query_vector,
                 answer=final_answer,
-                source_chunk_id=top_chunk_id,
+                target_lang=target_lang,
+                source_chunks=[c for c in reranked_chunks[:3]],
                 confidence=conf_val,
-                source_lang=target_lang,
+                answer_source=answer_source,
             )
         
         total_ms = round((time.perf_counter() - start_pipeline_t) * 1000, 2)

@@ -105,7 +105,7 @@ async def query_pipeline(
     file: Optional[UploadFile] = File(None),
     text: Optional[str] = Form(None),
     language_hint: Optional[str] = Form(None),
-    cross_lingual: Optional[bool] = Form(True),
+    cross_lingual: Optional[bool] = Form(False),
     request_body: Optional[QueryRequest] = None,
 ) -> QueryResponse:
     """
@@ -133,7 +133,7 @@ async def query_pipeline(
             req = QueryRequest(
                 audio_path=temp_audio_path,
                 language_hint=language_hint,
-                cross_lingual=True if cross_lingual is None else cross_lingual,
+                cross_lingual=False if cross_lingual is None else cross_lingual,
             )
             response = await orchestrator.execute(req)
             return response
@@ -143,7 +143,7 @@ async def query_pipeline(
             req = QueryRequest(
                 text=text.strip(),
                 language_hint=language_hint,
-                cross_lingual=True if cross_lingual is None else cross_lingual,
+                cross_lingual=False if cross_lingual is None else cross_lingual,
             )
             return await orchestrator.execute(req)
             

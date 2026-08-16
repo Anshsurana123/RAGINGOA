@@ -136,7 +136,7 @@ SARVAM_STT_MAX_RETRIES = 1
 # 6. GUARDRAIL THRESHOLDS
 # ==========================================
 # Pre-retrieval off-topic cosine distance threshold from nearest corpus centroid
-OFF_TOPIC_DISTANCE_THRESHOLD = 0.18  # Calibrated for multilingual-e5-small normalized embeddings (1 - cosine_similarity)
+OFF_TOPIC_DISTANCE_THRESHOLD = 0.55  # Calibrated for multilingual-e5-small normalized embeddings (1 - cosine_similarity)
 
 # Post-retrieval confidence threshold (calibrated composite dense & lexical match score)
 MIN_CONFIDENT_MATCH_SCORE = 0.75  # Empirically calibrated: declines all 10 off-topic queries (<=0.7257) while passing all 45 in-scope queries (>=0.7825)

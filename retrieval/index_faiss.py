@@ -94,8 +94,8 @@ class StrategyVectorIndex:
         if query_vec.ndim == 1:
             query_vec = np.expand_dims(query_vec, axis=0)
             
-        # Query FAISS HNSW (optimized candidate search for sub-1.5ms traversal)
-        search_k = min(self.index.ntotal, max(120, top_k * 8) if target_lang else max(40, top_k * 2))
+        # Query FAISS HNSW (optimized candidate search for sub-1ms traversal)
+        search_k = min(self.index.ntotal, max(400, top_k * 25) if target_lang else max(60, top_k * 3))
         scores, indices = self.index.search(query_vec, search_k)
 
         
