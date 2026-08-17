@@ -55,11 +55,19 @@ class PromptGuardResult:
     latency_ms: float = 0.0
     reason: Optional[str] = None
     safety_model_failed: bool = False
+    model_failed: bool = False
+
+    def __post_init__(self):
+        if self.model_failed:
+            self.safety_model_failed = True
+        elif self.safety_model_failed:
+            self.model_failed = True
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "is_safe": self.is_safe,
-            "safety_model_failed": self.safety_model_failed,
+            "safety_model_failed": self.safety_model_failed or self.model_failed,
+            "model_failed": self.model_failed or self.safety_model_failed,
             "risk_score": round(self.risk_score, 4),
             "label": self.label,
             "probabilities": {k: round(v, 4) for k, v in self.probabilities.items()},
@@ -267,12 +275,14 @@ class PromptGuardDetector:
         if self.tokenizer is None or (self.session is None and self.torch_model is None):
             return [
                 PromptGuardResult(
-                    is_safe=True,
-                    risk_score=0.0,
-                    label="BENIGN",
-                    probabilities={"BENIGN": 1.0, "INJECTION": 0.0, "JAILBREAK": 0.0},
+                    is_safe=False,
+                    risk_score=1.0,
+                    label="INFERENCE_ERROR",
+                    probabilities={"BENIGN": 0.0, "INJECTION": 0.0, "JAILBREAK": 0.0},
                     latency_ms=0.0,
-                    reason="Prompt-Guard engine uninitialized (pass-through)",
+                    reason="Prompt-Guard engine uninitialized — failing safe, deferring to Tier-1 regex only",
+                    model_failed=True,
+                    safety_model_failed=True,
                 )
                 for _ in texts
             ]
@@ -385,12 +395,32 @@ class PromptGuardDetector:
         except Exception as e:
             elapsed_ms = (time.perf_counter() - start_t) * 1000
             logger.error(f"Prompt-Guard batch inference error: {e}", exc_info=True)
-            return [self._fail_safe_result(text, mode=mode, latency_ms=elapsed_ms / max(1, len(texts))) for text in texts]
+            return [
+                PromptGuardResult(
+                    is_safe=False,  # fail SAFE, not fail open
+                    risk_score=1.0,
+                    label="INFERENCE_ERROR",
+                    probabilities={"BENIGN": 0.0, "INJECTION": 0.0, "JAILBREAK": 0.0},
+                    latency_ms=elapsed_ms / max(1, len(texts)),
+                    reason=f"Prompt-Guard inference failed ({e}) — failing safe, deferring to Tier-1 regex only",
+                    model_failed=True,
+                    safety_model_failed=True,
+                )
+                for _ in texts
+            ]
 
     def _fail_safe_result(self, text: str, mode: str = "prompt", latency_ms: float = 0.0) -> PromptGuardResult:
         """Build a telemetry-rich deterministic result after model failure."""
-        safe, risk, label, probabilities, reason = evaluate_fail_safe(text, suspicious=self._is_suspicious_text(text))
-        return PromptGuardResult(is_safe=safe, risk_score=risk, label=label, probabilities=probabilities, latency_ms=latency_ms, reason=reason, safety_model_failed=True)
+        return PromptGuardResult(
+            is_safe=False,
+            risk_score=1.0,
+            label="INFERENCE_ERROR",
+            probabilities={"BENIGN": 0.0, "INJECTION": 0.0, "JAILBREAK": 0.0},
+            latency_ms=latency_ms,
+            reason="Prompt-Guard inference failure fallback — failing safe",
+            model_failed=True,
+            safety_model_failed=True,
+        )
 
     def _is_suspicious_text(self, text: str) -> bool:
         """Fast regex pre-screening for indirect prompt injection signatures in context chunks."""

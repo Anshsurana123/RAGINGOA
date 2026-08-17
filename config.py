@@ -95,7 +95,11 @@ CONTEXT_BOUNDING_MAX_TOKENS = int(os.getenv("CONTEXT_BOUNDING_MAX_TOKENS", "64")
 # Build embeddings in bounded batches so an uncapped corpus does not require
 # holding every tokenized batch and vector in memory at once.
 INDEX_BUILD_BATCH_SIZE = int(os.getenv("INDEX_BUILD_BATCH_SIZE", "512"))
-MAX_INDEX_PASSAGES_PER_LANG = int(os.getenv("MAX_INDEX_PASSAGES_PER_LANG")) if os.getenv("MAX_INDEX_PASSAGES_PER_LANG") else None
+_MAX_PASSAGES_ENV = os.getenv("MAX_INDEX_PASSAGES_PER_LANG")
+if _MAX_PASSAGES_ENV is None or _MAX_PASSAGES_ENV.strip() == "":
+    MAX_INDEX_PASSAGES_PER_LANG = None  # explicit: no cap, not a silent fallback
+else:
+    MAX_INDEX_PASSAGES_PER_LANG = int(_MAX_PASSAGES_ENV)
 HNSW_M = 32
 HNSW_EF_CONSTRUCTION = 200
 HNSW_EF_SEARCH = 64

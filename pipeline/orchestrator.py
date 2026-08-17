@@ -165,7 +165,9 @@ class RAGPipelineOrchestrator:
             enable_neural=enable_neural_safety,
             enable_prompt_guard=config.ENABLE_PROMPT_GUARD,
         )
-        guardrails.safety_model_failed = bool(get_safety_telemetry().get("safety_model_failed", False))
+        _tel = get_safety_telemetry()
+        guardrails.safety_model_failed = bool(_tel.get("safety_model_failed", False))
+        guardrails.model_failed = bool(_tel.get("model_failed", False) or guardrails.safety_model_failed)
         if not is_safe:
             guardrails.unsafe_detected = True
             guardrails.unsafe_reason = unsafe_reason

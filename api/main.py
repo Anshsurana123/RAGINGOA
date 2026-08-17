@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
     
     # Ensure indexes are populated
     for name, idx in index_mgr.indexes.items():
-        print(f"[API Lifespan] Index '{name}': {idx.index.ntotal} vectors loaded.")
+        print(f"[API Lifespan] Index '{name}': {idx.index.ntotal} vectors loaded (configured cap: {config.MAX_INDEX_PASSAGES_PER_LANG}).")
         
     print("[API Lifespan] Eagerly initializing and warming up RAG orchestrator & ONNX models...")
     orchestrator = get_orchestrator()
