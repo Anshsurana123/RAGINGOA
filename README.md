@@ -152,11 +152,27 @@ Evaluates cold-path retrieval, reranking, context safety scanning, and grounded 
 
 ## 🌟 Key Architectural Capabilities
 
-### 1. 🛡️ Cascaded 4-Tier Pre-Retrieval Safety Guardrails
-- **Tier-1: Fast Regex & Safety Patterns (<0.1 ms)**: Sub-millisecond detection of profanity, hate speech, self-harm, weapons, violence, stalking, surveillance, law enforcement evasion, and credential harvesting across Indic and English scripts.
-- **Tier-2: Meta Prompt-Guard 86M Neural Safety (~1.5 ms)**: ONNX-accelerated Direct Prompt Injection (DPI) and Jailbreak filter running on CPU.
-- **Tier-3: Pre-Retrieval Query Intent Filter (`check_query_intent`)**: Identifies non-factual intents (creative writing, roleplay, personal advice, planning, code generation) and cleanly declines before running costly vector lookups.
-- **Tier-4: Centroid Distance Off-Topic Gatekeeper (`check_off_topic_query`)**: Computes cosine distance from normalized query embedding to language corpus centroids in `centroids.json` (threshold: 0.55). Out-of-domain queries are rejected prior to FAISS search.
+### 1. 🛡️ Cascaded 4-Tier Pre-Retrieval Safety Guardrails & Fail-Safe Architecture
+- **Tier-1: Stem + Flexible-Gap Regex & Obfuscation Decoding (<0.1 ms)**:
+  - *Stem + Flexible-Gap Matching (`build_verb_object_pattern`)*: Replaces rigid phrase-literal matching with verb/object root stems and variable word-gap matching (`max_gap=4`). Handles unlisted adjectives ("hidden explosive", "lethal toxin"), gerunds/participles ("stealing", "evading", "fabricating"), and irregular past-tense conjugations (`made`, `built`, `fled`, `stole`, `hid`).
+  - *Full Multilingual Coverage*: Covers all 14 Indic languages + English against violence, weapons, harm, stalking, surveillance/spyware, law enforcement evasion, theft, financial fraud, cyber exploitation, and prompt injection/system leaks.
+  - *Obfuscation Defense*: Unicode confusables/homoglyphs unrolling and Base64 recursive decoder.
+- **Tier-2: Meta Prompt-Guard 86M Neural Safety & Fail-Safe Architecture (~1.5 ms)**:
+  - ONNX-accelerated Direct Prompt Injection (DPI) and Jailbreak filter running locally on CPU.
+  - *Fail-Safe-by-Category*: Uninitialized states, exceptions, or runtime crashes strictly fail safe (`is_safe=False`, `risk_score=1.0`, `label="INFERENCE_ERROR"`, `model_failed=True`), preventing silent fail-open vulnerabilities.
+  - *Telemetry Exposure*: Telemetry exposes `model_failed` and `safety_model_failed` in `GuardrailFlags` for real-time observability.
+- **Tier-3: Pre-Retrieval Query Intent Taxonomy (`check_query_intent`)**:
+  - 6-class intent taxonomy filtering out non-factual and open-ended requests before expensive vector retrieval:
+    1. `creative_writing`: Poems, stories, songs, jokes, scripts, and fictional worldbuilding/creature generation.
+    2. `suggestion_request`: Open-ended ideas, activities, gifts, party games, and recommendations.
+    3. `personal_advice`: Relationship, career, life, dating, and decision-making advice.
+    4. `planning_task`: Itineraries, workout routines, and diet/meal plans.
+    5. `roleplay_chat`: Pretending/acting, conversational banter, and casual jokes.
+    6. `naming_brainstorming`: Pet, baby, business, brand, and product name suggestions.
+  - *Imperative-First Framing*: Protects factual knowledge queries (e.g., *"What is the history of riddles?"*, *"How do travel agencies plan tour itineraries?"*, *"Who directed the Manhattan Project?"*) from false positive rejections.
+- **Tier-4: De-Weighted Multi-Centroid Off-Topic Gatekeeper (`check_off_topic_query`)**:
+  - Computes cosine distance from query embeddings to corpus centroids in `centroids.json`.
+  - *Own-Language Centroid Weighting*: Requires queries to satisfy `own_lang_dist <= threshold * 1.5` for their resolved language, preventing out-of-domain queries from falsely passing due to accidental proximity to an unrelated language cluster.
 
 ### 2. ⚡ Sub-10ms FAISS Vector Search & Script-Aware BM25 Hybrid Fusion
 - **In-Memory FAISS HNSW Indexing (`IndexHNSWFlat`)**: Built with $M=32$, $efConstruction=200$, $efSearch=64$, delivering **0.73 ms** CPU search across 148,545 passage vectors.
@@ -200,9 +216,9 @@ Evaluates cold-path retrieval, reranking, context safety scanning, and grounded 
 | **Hybrid Re-ranking** | Adaptive BM25 + Cross-Encoder | Combines adaptive script-aware BM25 with deep cross-attention re-ranking on candidate passages in $<25\text{ms}$ on CPU. |
 | **Disqualification Gate** | Composite Score Threshold (< 0.35) | Immediately declines queries whose top match fails deep relevance checks, preventing false positive answers. |
 | **Context Synthesis** | TextRank Eigenvector Centrality + SVD | Deterministic mathematical synthesis extracting top salient sentences from candidate passages in $<10\text{ms}$ on CPU with zero hallucinations. |
-| **Pre-Retrieval Guardrails** | Fast Regex + Prompt-Guard + Intent + Centroids | 4-tier cascaded defense executing cheapest checks first to block unsafe, malicious, or out-of-domain queries. |
+| **Pre-Retrieval Guardrails** | Stem Regex + Prompt-Guard + Intent + Centroid | 4-tier cascaded defense with stem + flexible gap matching, Prompt-Guard fail-safe architecture, 6-class intent filtering, and own-language centroid weighting. |
 | **Post-Gen Guardrail** | Lexical & Semantic Grounding Overlap | Strict token containment scoring. Rejects ungrounded hallucinations with standard template. |
-| **Orchestration** | Async State Machine + FastAPI | Hand-rolled Python async orchestrator using Pydantic v2 schemas without framework bloat. |
+| **Orchestration** | Async State Machine + FastAPI | Hand-rolled Python async orchestrator using Pydantic v2 schemas with request deadline enforcement and zero framework bloat. |
 
 ---
 
@@ -254,8 +270,14 @@ The repository includes a comprehensive 50-test automated suite covering all mod
 pytest tests/ -v
 ```
 
-### Test Coverage (50/50 Tests Passing in 31s):
-- `tests/test_eval_fixes.py` (17 tests): Stalking/surveillance detection, law enforcement evasion, credential harvesting, query intent classification, factual query pass-through, async timeout protection, multilingual regression queries.
+### Test Coverage (50/50 Tests Passing in 33s):
+- `tests/test_eval_fixes.py` (17 tests):
+  - **10 Diagnosis Failed Unsafe Cases**: Verified 100% blocked across gerunds, unlisted adjectives, and synonyms.
+  - **5 Diagnosis Failed Intent Cases**: Verified 100% declined across creative writing, suggestions, and fictional worldbuilding.
+  - **Adversarial Conjugation Matrices**: Tested base, gerund, and irregular past forms across weapons, theft, surveillance, evasion, and cyber categories.
+  - **Prompt-Guard Fail-Safe**: Verified exceptions and engine crashes fail safe with `model_failed=True` telemetry.
+  - **Centroid Weighting**: Verified own-language centroid prioritization.
+  - **Non-False-Positive Integrity**: Verified in-scope factual questions pass cleanly.
 - `tests/test_pipeline.py` (27 tests): Config source of truth, language registry, dynamic routing, passage-native/sentence-window/semantic chunking, BM25 tokenization & score fusion, RRF candidate merging, fast regex guardrail, centroid off-topic gate, grounding overlap check, extractive synthesis, cross-lingual federation, robust JSON parser, and factoid queries across Hindi, English, Marathi.
 - `tests/test_prompt_guard.py` (6 tests): Direct Prompt Injection (DPI) blocking, Indirect Prompt Injection (IPI) context chunk filtering, confusable unpacker, benign query pass-through, sub-20ms latency benchmark.
 
