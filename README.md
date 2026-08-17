@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: Voice-Enabled Indic RAG with Sub-10ms FAISS Retrieval & Multi-Tier Guardrails
+short_description: Voice Indic RAG with Sub-10ms FAISS Retrieval
 ---
 
 # 🌴 Hacker House Goa 2026: Voice-Enabled Multilingual Indic RAG
